@@ -1,7 +1,6 @@
 # ignore module and pic
 
 trained_moudles/*
-Test/
 data/Ori
 data/TestResult
 
