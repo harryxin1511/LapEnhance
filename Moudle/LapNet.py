@@ -7,6 +7,11 @@ import torch
 from Moudle.unet_model import UNet
 # def default_conv(in_channels, out_channels, kernel_size, bias=True):
 #     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
+"""
+w/out  upsample functional kernel
+"""
+
+
 def conv(in_channels, out_channels, kernel_size, bias=False, stride = 1):
     return nn.Conv2d(
         in_channels, out_channels, kernel_size,
@@ -102,7 +107,7 @@ class Lap_Pyramid_Conv(nn.Module):
         image = pyr[-1]
         pyr_list = []
         for level in reversed(pyr[:-1]):  # 反向遍历除了最后一个元素
-            up = self.upsample(image)
+            up = nn.functional.interpolate(image,mode='bilinear',scale_factor=2)
             if up.shape[2] != level.shape[2] or up.shape[3] != level.shape[3]:
                 up = nn.functional.interpolate(up, size=(level.shape[2], level.shape[3]))
             image = up + level
@@ -137,7 +142,7 @@ class Trans_high(nn.Module):
 
         #phase2
         self.trans_mask_block = nn.Sequential(*model)
-        self.trans_mask_block[0] = nn.Conv2d(3,64,3,padding=1)
+        self.trans_mask_block[0] = nn.Conv2d(6,64,3,padding=1)
 
         #phase3
 
@@ -153,12 +158,12 @@ class Trans_high(nn.Module):
         setattr(self, 'result_highfreq_{}'.format(str(0)), result_highfreq2) #torch.Size([1, 3, 64, 64])
         # print(self.result_highfreq_0.shape)
         feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
-        feature3 = torch.mul(feature2,pyr_lap[-3])
+        feature3 = torch.cat((feature2,pyr_lap[-3]),dim=1)
         feature3 = self.trans_mask_block(feature3)
         feature3,result_highfreq3 = self.sam(feature3,pyr_high[-3])
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
-        feature4 = torch.mul(feature3,pyr_lap[-4])
+        feature4 = torch.cat((feature3,pyr_lap[-4]),dim=1)
         result_highfreq4 = self.trans_mask_block(feature4)
         # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
@@ -204,7 +209,7 @@ class LapNet(nn.Module):
         pyr_A_trans = self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
         pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
         pyr_result = [self.sig(item) for item in pyr_result]
-        pyr_result.insert(0,fake_B_low)
+        pyr_result.insert(0,self.sig(fake_B_low))
         # for item in pyr_result:
         #     print(item[0].shape)
         fake_B_full = pyr_result[-1]

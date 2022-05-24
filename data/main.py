@@ -14,6 +14,7 @@ import lib.pytorch_ssim as pytorch_ssim
 from lib.utils import TVLoss, print_network
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
+device_id =[]
 import pandas as pd
 import torch.nn.functional as F
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
@@ -81,11 +82,11 @@ def train(loader_train,loader_test,net,optimizer):
 
         #loss = criterion[0](out,y)
         """ loss """
-        scale0l1 = mse_loss(Scale0,y)  #512
-        scale1l1 = mse_loss(Scale1,gt_down1) #256
-        scale2l1 = mse_loss(Scale2,gt_down2) #128
-        scale2l1 = mse_loss(Scale2,gt_down2) #128
-        scale3l1 = mse_loss(Scale3,gt_down3) #64
+        scale0l1 = L1_closs(Scale0,y)  #512
+        scale1l1 = L1_closs(Scale1,gt_down1) #256
+        scale2l1 = L1_closs(Scale2,gt_down2) #128
+        scale2l1 = L1_closs(Scale2,gt_down2) #128
+        scale3l1 = L1_closs(Scale3,gt_down3) #64
         scale0color = torch.mean(-1*color_loss(Scale0,y))  #512
         scale1color = torch.mean(-1*color_loss(Scale1,gt_down1))  #256
         scale2color = torch.mean(-1*color_loss(Scale2,gt_down2))  #128
@@ -93,7 +94,7 @@ def train(loader_train,loader_test,net,optimizer):
 
         ssim_loss = 1 - ssim(out, y)
         tv_loss = TV_loss(out)
-        loss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1  + 6*ssim_loss
+        loss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1 +6*ssim_loss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
         # AvgScale1Loss = AvgScale1Loss + torch.Tensor.item(scale1l1.data)
@@ -165,17 +166,17 @@ def test(net,loader_test):
 
 
 
-# class L1_Charbonnier_loss(torch.nn.Module):
-#     """L1 Charbonnierloss."""
-#     def __init__(self):
-#         super(L1_Charbonnier_loss, self).__init__()
-#         self.eps = 1e-6
-#
-#     def forward(self, X, Y):
-#         diff = torch.add(X, -Y)
-#         error = torch.sqrt(diff * diff + self.eps)
-#         loss = torch.mean(error)
-#         return loss
+class L1_Charbonnier_loss(torch.nn.Module):
+    """L1 Charbonnierloss."""
+    def __init__(self):
+        super(L1_Charbonnier_loss, self).__init__()
+        self.eps = 1e-6
+
+    def forward(self, X, Y):
+        diff = torch.add(X, -Y)
+        error = torch.sqrt(diff * diff + self.eps)
+        loss = torch.mean(error)
+        return loss
 
 
 #TEST!
@@ -190,6 +191,7 @@ if __name__ == "__main__":
     LOSS
     """
     L1_criterion = nn.L1Loss()
+    L1_closs = L1_Charbonnier_loss()
     TV_loss = TVLoss()
     mse_loss = torch.nn.MSELoss()
     color_loss = nn.CosineSimilarity(dim=1,eps=1e-6)
@@ -197,6 +199,7 @@ if __name__ == "__main__":
     if torch.cuda.is_available():
         mse_loss = mse_loss.cuda()
         L1_criterion = L1_criterion.cuda()
+        L1_closs = L1_closs.cuda()
         TV_loss = TV_loss.cuda()
         ssim = ssim.cuda()
         color_loss = color_loss.cuda()

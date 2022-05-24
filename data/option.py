@@ -97,7 +97,7 @@ crop_size = opt.crop_size
 # ITS_test_loader = DataLoader(dataset=RESIDE_Dataset(path + '/test/', train=False, size=[2160,3840]), batch_size=batch_size,shuffle=True)
 route = '/home/xin/Experience/dataset/Adobe5K/'
 ITS_train_loader = DataLoader(dataset=TheDataset(route=route), batch_size=batch_size,shuffle=True)
-ITS_test_loader = DataLoader(dataset=TheDataset(route=route,phase='train'), batch_size=batch_size,shuffle=True)
+ITS_test_loader = DataLoader(dataset=TheDataset(route=route,phase='test'), batch_size=batch_size,shuffle=True)
 # ITS_eval_loader = DataLoader(dataset=TheDataset(route=route,phase='eval'), batch_size=batch_size,shuffle=True)
 
 if __name__ == "__main__":

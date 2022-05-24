@@ -13,7 +13,7 @@ sys.path.append('../')
 sys.path.append('../')
 abs=os.getcwd()+'/'
 
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
+
 
 
 #         for tensor,tit,i in zip(tensors,titles,range(len(tensors))):
