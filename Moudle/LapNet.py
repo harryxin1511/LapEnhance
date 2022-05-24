@@ -78,9 +78,9 @@ class Lap_Pyramid_Conv(nn.Module):
         return self.conv_gauss(x_up, 4 * self.kernel)
 
     def conv_gauss(self, img, kernel):  # 高斯卷积
-        img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect')
-        out = torch.nn.functional.conv2d(img, kernel, groups=img.shape[1])
-        return out
+        # img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect')
+        # out = torch.nn.functional.conv2d(img, kernel, groups=img.shape[1])
+        return img
 
     def pyramid_decom(self, img):  # 拉普拉斯金字塔高频分量和低频分量的区分
         current = img

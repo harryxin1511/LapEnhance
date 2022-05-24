@@ -81,20 +81,22 @@ def train(loader_train,loader_test,net,optimizer):
         # laplace3 = GT - reup3
 
         #loss = criterion[0](out,y)
-        """ loss """
+        """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
         scale1l1 = L1_closs(Scale1,gt_down1) #256
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
+        """color_loss """
         scale0color = torch.mean(-1*color_loss(Scale0,y))  #512
         scale1color = torch.mean(-1*color_loss(Scale1,gt_down1))  #256
         scale2color = torch.mean(-1*color_loss(Scale2,gt_down2))  #128
         scale3color = torch.mean(-1*color_loss(Scale3,gt_down3))  #64
+        """lap loss"""
 
         ssim_loss = 1 - ssim(out, y)
         tv_loss = TV_loss(out)
-        loss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1 +6*ssim_loss
+        loss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1 + 6*ssim_loss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
         # AvgScale1Loss = AvgScale1Loss + torch.Tensor.item(scale1l1.data)
