@@ -72,7 +72,7 @@ for im in os.listdir(img_dir):
                 t = torch.squeeze(img.clamp(0, 1).cpu())
                 # tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
                 vutils.save_image(t, output_mask + im.split('.')[0] + f'_Lapmask{idx}.png')
-    ts=torch.squeeze(pred.clamp(0,1).cpu())
+    ts=torch.squeeze(pred[0].clamp(0,1).cpu())
     #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
     vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
 

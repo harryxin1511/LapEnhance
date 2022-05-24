@@ -43,7 +43,7 @@ def conv(in_channels, out_channels, kernel_size, bias=False, stride = 1):
 #         return image
 
 class Lap_Pyramid_Conv(nn.Module):
-    def __init__(self, num_high=4):
+    def __init__(self, num_high=3):
         super(Lap_Pyramid_Conv, self).__init__()
 
         self.num_high = num_high
@@ -100,12 +100,14 @@ class Lap_Pyramid_Conv(nn.Module):
 
     def pyramid_recons(self, pyr):  # list
         image = pyr[-1]
+        pyr_list = []
         for level in reversed(pyr[:-1]):  # 反向遍历除了最后一个元素
             up = self.upsample(image)
             if up.shape[2] != level.shape[2] or up.shape[3] != level.shape[3]:
                 up = nn.functional.interpolate(up, size=(level.shape[2], level.shape[3]))
             image = up + level
-        return image
+            pyr_list.append(image)
+        return pyr_list
 ## Supervised Attention Module
 class SAM(nn.Module):
     def __init__(self, n_feat, kernel_size, bias=False):
@@ -157,13 +159,13 @@ class Trans_high(nn.Module):
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
         feature4 = torch.mul(feature3,pyr_lap[-4])
-        feature4 = self.trans_mask_block(feature4)
-        feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
+        result_highfreq4 = self.trans_mask_block(feature4)
+        # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
-        feature4 = nn.functional.interpolate(feature4, size=(pyr_lap[-5].shape[2], pyr_lap[-5].shape[3]))
-        feature5 = torch.mul(feature4,pyr_lap[-5])
-        result_highfreq5 = self.trans_mask_block(feature5)
-        setattr(self, 'result_highfreq_{}'.format(str(3)), result_highfreq5)  # torch.Size([1, 3, 512, 512])
+        # feature4 = nn.functional.interpolate(feature4, size=(pyr_lap[-5].shape[2], pyr_lap[-5].shape[3]))
+        # feature5 = torch.mul(feature4,pyr_lap[-5])
+        # result_highfreq5 = self.trans_mask_block(feature5)
+        # setattr(self, 'result_highfreq_{}'.format(str(3)), result_highfreq5)  # torch.Size([1, 3, 512, 512])
 
 
 
@@ -172,7 +174,7 @@ class Trans_high(nn.Module):
             pyr_result.append(result_highfreq)
 
         pyr_result.append(fake_low)  # 低频分量追加到后面即可
-        # print(len(pyr_result))
+        #print((pyr_result[0].shape))
         return pyr_result
 
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
@@ -200,12 +202,15 @@ class LapNet(nn.Module):
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
         pyr_A_trans = self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
-        fake_B_full = self.lap_pyramid.pyramid_recons(pyr_A_trans)
-        fake_B_full = self.sig(fake_B_full)
-        return fake_B_full
+        pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
+        pyr_result = [self.sig(item) for item in pyr_result]
+        pyr_result.insert(0,fake_B_low)
+        # for item in pyr_result:
+        #     print(item[0].shape)
+        fake_B_full = pyr_result[-1]
+        return fake_B_full,pyr_result
 if __name__ == "__main__":
     device = torch.device("cuda")
     X = torch.Tensor(1,3,512,512).to(device)
-    net = LapNet(num_high=4)
+    net = LapNet(num_high=3)
     y = net(X)
-    print(y.shape)
