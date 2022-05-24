@@ -3,6 +3,13 @@
 trained_moudles/*
 data/Ori
 data/TestResult
+Test/baseline_result
+!Test/test.py
+Test/Decom
+Test/mask
+Test/pred_Lap:wocolorloss
+Test/test_imgs
+Test/lapdecom.py
 
 
 
