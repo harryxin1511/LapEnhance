@@ -15,6 +15,7 @@ from lib.utils import TVLoss, print_network
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
+os.mkdir('../trained_moudles/')
 import pandas as pd
 import torch.nn.functional as F
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
