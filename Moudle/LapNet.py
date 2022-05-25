@@ -213,6 +213,7 @@ class LapNet(nn.Module):
         # for item in pyr_result:
         #     print(item[0].shape)
         fake_B_full = pyr_result[-1]
+
         return fake_B_full,pyr_result,pyr_A
 if __name__ == "__main__":
     device = torch.device("cuda")
