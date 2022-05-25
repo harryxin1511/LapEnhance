@@ -22,7 +22,7 @@ parser.add_argument('--perloss',default=True,action='store_true',help='perceptua
 parser.add_argument('--net',type=str,default='ConMixer')
 #parser.add_argument('--model_dir',type=str,default= r'C:\jgl\yolov4\trained_moudles')
 parser.add_argument('--device',type=str,default='Automatic detection')
-parser.add_argument('--batch_size', default=8, type=int, help='batch size')
+parser.add_argument('--batch_size', default=16, type=int, help='batch size')
 parser.add_argument('--epoch', default=2000, type=int, help='number of total epochs to run')
 parser.add_argument('--warmup_epoch', default=10, type=int, help='the num of warmup epochs')
 parser.add_argument('--init_lr', default=2e-4, type=float, help='a low initial learning rata for adamw optimizer')

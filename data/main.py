@@ -15,7 +15,8 @@ from lib.utils import TVLoss, print_network
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
-os.mkdir('../trained_moudles/')
+if not os.path.exists('../trained_moudles/'):
+    os.mkdir('../trained_moudles/')
 import pandas as pd
 import torch.nn.functional as F
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
@@ -53,13 +54,16 @@ def train(loader_train,loader_test,net,optimizer):
         net = net.to(opt.device)
         # net = torch.nn.DataParallel(net,de)
         start=time.time()
-        out,pyr_list = net(x)
+        out,pyr_list,pyr_lap = net(x)
         end = time.time()
         #extact each pyr img
         Scale0 = pyr_list[3] #512
         Scale1 = pyr_list[2] #256
         Scale2 = pyr_list[1] #128
         Scale3 = pyr_list[0] #64
+        lap0 = pyr_lap[0]  #512
+        lap1 = pyr_lap[1]  #256
+        lap2 = pyr_lap[2]  #128
         AvgScale0Loss = 0
         AvgScale1Loss = 0
         AvgScale2Loss = 0
@@ -71,15 +75,15 @@ def train(loader_train,loader_test,net,optimizer):
         gt_down1 = F.interpolate(y, scale_factor=0.5, mode='bilinear')  # 256
         gt_down2 = F.interpolate(gt_down1, scale_factor=0.5, mode='bilinear')  # 128
         gt_down3 = F.interpolate(gt_down2, scale_factor=0.5, mode='bilinear')  # 64
-        # in_down0 = F.interpolate(x, scale_factor=0.5, mode='bilinear')  # 512
-        # in_down1 = F.interpolate(in_down0, scale_factor=0.5, mode='bilinear')  # 256
-        # in_down2 = F.interpolate(in_down1, scale_factor=0.5, mode='bilinear')  # 128
-        # in_down3 = F.interpolate(in_down2, scale_factor=0.5, mode='bilinear')  # 64
-        # reup2 = F.interpolate(gt_down4, scale_factor=2, mode='bilinear')  # 128
-        # reup3 = F.interpolate(gt_down2, scale_factor=2, mode='bilinear')  # 256
-        #
-        # laplace2 = gt_down2 - reup2
-        # laplace3 = GT - reup3
+
+        reup1 = F.interpolate(gt_down3, scale_factor=2, mode='bilinear')  # 128
+        reup2 = F.interpolate(gt_down2, scale_factor=2, mode='bilinear')  # 256
+        reup3 = F.interpolate(gt_down1, scale_factor=2, mode='bilinear')  # 512
+
+        laplace0 = y-reup3  #512
+        laplace1 = gt_down1 - reup2 #256
+        laplace2 = gt_down2 - reup1 #128
+
 
         #loss = criterion[0](out,y)
         """ l1 loss """
@@ -94,10 +98,15 @@ def train(loader_train,loader_test,net,optimizer):
         scale2color = torch.mean(-1*color_loss(Scale2,gt_down2))  #128
         scale3color = torch.mean(-1*color_loss(Scale3,gt_down3))  #64
         """lap loss"""
-
+        lap0loss = L1_criterion(laplace0,pyr_lap[0])
+        lap1loss = L1_criterion(laplace1,pyr_lap[1])
+        lap2loss = L1_criterion(laplace2,pyr_lap[2])
+        total_laploss = lap0loss+lap1loss+lap2loss
+        """ssim loss"""
         ssim_loss = 1 - ssim(out, y)
+        """tv_loss"""
         tv_loss = TV_loss(out)
-        loss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1 + 6*ssim_loss
+        loss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1 + 6*ssim_loss +total_laploss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
         # AvgScale1Loss = AvgScale1Loss + torch.Tensor.item(scale1l1.data)
@@ -152,7 +161,7 @@ def test(net,loader_test):
             inputs,targets =data[0],data[1]
             inputs = inputs.to(opt.device)
             targets = targets.to(opt.device)
-            pred,pyrlist = net(inputs)  # 预测值
+            pred,pyrlist,pyr_A = net(inputs)  # 预测值
             ssim1 = ssim(pred, targets).item()  # 真实值
             psnr1 = psnr(pred, targets)
             ssims.append(ssim1)
@@ -189,7 +198,10 @@ if __name__ == "__main__":
     loader_train = loaders[opt.trainset]    # its_train
     loader_test = loaders[opt.testset]      # its_test
     net = model[opt.net]
+    if torch.cuda.device_count() > 0:
+        net = torch.nn.DataParallel(net,device_ids=[0,1])
     net = net.to(opt.device)
+
     """
     LOSS
     """

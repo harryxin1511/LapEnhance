@@ -199,7 +199,7 @@ class LapNet(nn.Module):
 
         pyr_A,pyr_O = self.lap_pyramid.pyramid_decom(img=real_A_full) #pyr_a is lap,pyr_0 is ori
         # print((pyr_O[-1].shape))
-        #print(len(pyr_A))
+        #print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
         fake_B_low = self.unet(pyr_A[-1])   #last nomal map
         fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
         real_A_up = nn.functional.interpolate(pyr_A[-1], size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
@@ -213,7 +213,7 @@ class LapNet(nn.Module):
         # for item in pyr_result:
         #     print(item[0].shape)
         fake_B_full = pyr_result[-1]
-        return fake_B_full,pyr_result
+        return fake_B_full,pyr_result,pyr_A
 if __name__ == "__main__":
     device = torch.device("cuda")
     X = torch.Tensor(1,3,512,512).to(device)
