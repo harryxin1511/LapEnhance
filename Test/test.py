@@ -44,7 +44,7 @@ if not os.path.exists(output_dir):
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
-net = torch.load('../laploss_moudles/ll1499.pth')
+net = torch.load('../trained_moudles/ll57999.pth')
 print(type(net))
 
 net.eval()
