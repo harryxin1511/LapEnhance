@@ -11,6 +11,56 @@ from Moudle.unet_model import UNet
 w/out  upsample functional kernel
 """
 
+# class CALayer(nn.Module):
+#     def __init__(self, channel, reduction=4, bias=False):
+#         super(CALayer, self).__init__()
+#         # global average pooling: feature --> point
+#         self.avg_pool = nn.AdaptiveAvgPool2d(1)
+#         # feature channel downscale and upscale --> channel weight
+#         self.conv_du = nn.Sequential(
+#                 nn.Conv2d(channel, channel // reduction, 1, padding=0, bias=bias),
+#                 nn.ReLU(inplace=True),
+#                 nn.Conv2d(channel // reduction, channel, 1, padding=0, bias=bias),
+#                 nn.Sigmoid()
+#         )
+#
+#     def forward(self, x):
+#         y = self.avg_pool(x)
+#         y = self.conv_du(y)
+#         return x * y
+#
+# ##########################################################################
+# ## Channel Attention Block (CAB)
+# class CAB(nn.Module):
+#     def __init__(self, n_feat, kernel_size, reduction=4, bias=False):
+#         super(CAB, self).__init__()
+#         modules_body = []
+#         modules_body.append(conv(n_feat, n_feat, kernel_size, bias=bias))
+#         #modules_body.append(act)
+#         modules_body.append(conv(n_feat, n_feat, kernel_size, bias=bias))
+#
+#         self.CA = CALayer(n_feat, reduction, bias=bias)
+#         self.body = nn.Sequential(*modules_body)
+#
+#     def forward(self, x):
+#         res = self.body(x)
+#         res = self.CA(res)
+#         res += x
+#         return res
+#
+# ## Original Resolution Block (ORB)
+# class ORB(nn.Module):
+#     def __init__(self, n_feat, kernel_size, reduction=4, bias=False, num_cab=8):
+#         super(ORB, self).__init__()
+#         modules_body = []
+#         modules_body = [CAB(n_feat, kernel_size, reduction, bias=bias) for _ in range(num_cab)]
+#         modules_body.append(conv(n_feat, n_feat, kernel_size))
+#         self.body = nn.Sequential(*modules_body)
+#
+#     def forward(self, x):
+#         res = self.body(x)
+#         res += x
+#         return res
 
 def conv(in_channels, out_channels, kernel_size, bias=False, stride = 1):
     return nn.Conv2d(
@@ -121,7 +171,7 @@ class SAM(nn.Module):
         self.conv2 = conv(n_feat, 3, kernel_size, bias=bias)
         self.conv3 = conv(3, n_feat, kernel_size, bias=bias)
 
-    def forward(self, x, x_img):        #x :feature img:original img
+    def forward(self, x, x_img):        #x :feature x_img:original img
         x1 = self.conv1(x)
         img = self.conv2(x) + x_img
         x2 = torch.sigmoid(self.conv3(img))
@@ -129,22 +179,30 @@ class SAM(nn.Module):
         x1 = x1+x
         return x1, img
 
+
 class Trans_high(nn.Module):
     def __init__(self,  num_high=4):
         super(Trans_high, self).__init__()
-        self.sam = SAM(3, 3)
+        self.sam1 = SAM(9, 3)
+        self.sam2 = SAM(18,3)
         self.num_high = num_high
+        self.conv = nn.Conv2d(15, 3, kernel_size=1, ).cuda()
         #phase1
         model = [nn.Conv2d(9, 64, 3, padding=1)]
         model += [UNet(64,64)]
-        model += [nn.Conv2d(64, 3, 3, padding=1)]
+        model += [nn.Conv2d(64, 9, 3, padding=1)]
         self.model = nn.Sequential(*model)
 
         #phase2
-        self.trans_mask_block = nn.Sequential(*model)
-        self.trans_mask_block[0] = nn.Conv2d(6,64,3,padding=1)
-
+        self.trans_mask_block2 = nn.Sequential(*model)
+        self.trans_mask_block2[0] = nn.Conv2d(18,64,3,padding=1)
+        self.trans_mask_block2[-1] = nn.Conv2d(64,18,3,padding=1)
         #phase3
+        self.trans_mask_block3 = nn.Sequential(*model)
+        self.trans_mask_block3[0] = nn.Conv2d(36, 64, 3, padding=1)
+        self.trans_mask_block3[-1] = nn.Conv2d(64, 3,3,padding=1)
+
+        #duplicate feature map
 
     def forward(self, x, pyr_lap, fake_low,pyr_high):   # concat分量 lp分量list 低频处理分量
         pyr_result = []
@@ -154,24 +212,23 @@ class Trans_high(nn.Module):
         # mask = nn.functional.interpolate(mask, size=(pyr_lap[-2-i].shape[2], pyr_lap[-2-i].shape[3]))
             # result_highfreq = torch.mul(pyr_lap[-2-i], mask) + pyr_lap[-2-i]
             # result_highfreq = torch.mul(pyr_lap[-2-i], mask) + pyr_lap[-2-i]
-        feature2,result_highfreq2 = self.sam(mask,pyr_high[-2])
+        feature2,result_highfreq2 = self.sam1(mask,pyr_high[-2])
         setattr(self, 'result_highfreq_{}'.format(str(0)), result_highfreq2) #torch.Size([1, 3, 64, 64])
         # print(self.result_highfreq_0.shape)
         feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
-        feature3 = torch.cat((feature2,pyr_lap[-3]),dim=1)
-        feature3 = self.trans_mask_block(feature3)
-        feature3,result_highfreq3 = self.sam(feature3,pyr_high[-3])
+        copyl1 = torch.cat((pyr_lap[-3],pyr_lap[-3],pyr_lap[-3]),dim=1)
+        feature3 = torch.cat((feature2,copyl1),dim=1)
+        feature3 = self.trans_mask_block2(feature3)
+        feature3,result_highfreq3 = self.sam2(feature3,pyr_high[-3])
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
-        feature4 = torch.cat((feature3,pyr_lap[-4]),dim=1)
-        result_highfreq4 = self.trans_mask_block(feature4)
+        copyl0 = torch.cat((pyr_lap[-4],pyr_lap[-4],pyr_lap[-4]),dim=1)
+        copy = torch.cat((pyr_high[-4],pyr_high[-4],pyr_high[-4]),dim=1)
+        feature4 = torch.cat((feature3,copyl0,copy),dim=1)
+        # result_highfreq4 = self.conv(self.orb(feature4))
+        result_highfreq4 = self.trans_mask_block3(feature4)
         # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
-        # feature4 = nn.functional.interpolate(feature4, size=(pyr_lap[-5].shape[2], pyr_lap[-5].shape[3]))
-        # feature5 = torch.mul(feature4,pyr_lap[-5])
-        # result_highfreq5 = self.trans_mask_block(feature5)
-        # setattr(self, 'result_highfreq_{}'.format(str(3)), result_highfreq5)  # torch.Size([1, 3, 512, 512])
-
 
 
         for i in reversed(range(self.num_high)):
@@ -185,7 +242,6 @@ class Trans_high(nn.Module):
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
 
-
 class LapNet(nn.Module):
     def __init__(self, num_high=3):
         super(LapNet, self).__init__()
@@ -193,13 +249,17 @@ class LapNet(nn.Module):
         trans_high = Trans_high(num_high=num_high)
         self.trans_high = trans_high.cuda()
         self.unet = UNet(3,3).cuda()
+        self.sam = SAM(3,3).cuda()
         self.sig = nn.Sigmoid().cuda()
         self.relu = nn.ReLU().cuda()
+        # self.orb = ORB(64, 3).cuda()
+        self.conv1 = nn.Conv2d(3,64,kernel_size=3,stride=1,padding=1).cuda()
+        self.conv2 = nn.Conv2d(64,3,kernel_size=3,stride=1,padding=1).cuda()
     def forward(self, real_A_full):
 
         pyr_A,pyr_O = self.lap_pyramid.pyramid_decom(img=real_A_full) #pyr_a is lap,pyr_0 is ori
         # print((pyr_O[-1].shape))
-        #print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
+        # print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
         fake_B_low = self.unet(pyr_A[-1])   #last nomal map
         fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
         real_A_up = nn.functional.interpolate(pyr_A[-1], size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
@@ -210,13 +270,15 @@ class LapNet(nn.Module):
         pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
         pyr_result = [self.sig(item) for item in pyr_result]
         pyr_result.insert(0,self.sig(fake_B_low))
-        # for item in pyr_result:
-        #     print(item[0].shape)
         fake_B_full = pyr_result[-1]
-
+        # print(fake_B_full.shape)
         return fake_B_full,pyr_result,pyr_A
+
+
+
 if __name__ == "__main__":
     device = torch.device("cuda")
     X = torch.Tensor(1,3,512,512).to(device)
     net = LapNet(num_high=3)
+    #net = ORB(20,3).cuda()
     y = net(X)

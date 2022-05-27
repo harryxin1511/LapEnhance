@@ -125,7 +125,7 @@ def train(loader_train,loader_test,net,optimizer):
             f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 2000 == 0:
+        if (epoch+1) % 50 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test)
@@ -143,12 +143,7 @@ def train(loader_train,loader_test,net,optimizer):
                 # print(opt.model_dir+'/train_model.pth')
                 print(f'\n model saved at step :{epoch}| max_psnr:{max_psnr:.4f}|max_ssim:{max_ssim:.4f}')
 
-def test(net,loader_test):
-    net.eval()
 
-    torch.cuda.empty_cache()
-    ssims = []
-    psnrs = []
 
 def test(net,loader_test):
     net.eval()
@@ -156,8 +151,8 @@ def test(net,loader_test):
     ssims = []
     psnrs = []
     #inputs, targets = next(iter(loader_test))
-    for i in range(100):
-        for idx,data in enumerate(loader_test,1):
+    # for i in range(100):
+    for idx,data in enumerate(loader_test,1):
             inputs,targets =data[0],data[1]
             inputs = inputs.to(opt.device)
             targets = targets.to(opt.device)
@@ -174,7 +169,7 @@ def test(net,loader_test):
             pic1 = toPIL(img1)
             pic.save(save_test_path+f'pre{idx}.jpg')
             pic1.save('clear.jpg')
-        return np.mean(ssims), np.mean(psnrs)
+    return np.mean(ssims), np.mean(psnrs)
 
 
 
