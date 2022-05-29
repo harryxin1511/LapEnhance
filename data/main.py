@@ -12,11 +12,14 @@ from data.metrics import ssim, psnr
 from data.option import opt, ITS_train_loader, ITS_test_loader
 import lib.pytorch_ssim as pytorch_ssim
 from lib.utils import TVLoss, print_network
+from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
 if not os.path.exists('../trained_moudles/'):
     os.mkdir('../trained_moudles/')
+from torch.nn.modules.loss import  _Loss
+from torchvision.models import vgg
 import pandas as pd
 import torch.nn.functional as F
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
@@ -84,19 +87,19 @@ def train(loader_train,loader_test,net,optimizer):
         laplace1 = gt_down1 - reup2 #256
         laplace2 = gt_down2 - reup1 #128
 
-
+        blur_rgb = Blur(3).cuda()
+        inputc = blur_rgb(Scale0)
+        labelc = blur_rgb(y)
         #loss = criterion[0](out,y)
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
-        scale1l1 = L1_closs(Scale1,gt_down1) #256
-        scale2l1 = L1_closs(Scale2,gt_down2) #128
-        scale2l1 = L1_closs(Scale2,gt_down2) #128
+        scale1l1 = vgg_loss(Scale1,gt_down1) #256
+        scale2l1 = vgg_loss(Scale2,gt_down2) #128
+        scale2l1 = vgg_loss(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
+        scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
         """color_loss """
-        scale0color = torch.mean(-1*color_loss(Scale0,y))  #512
-        scale1color = torch.mean(-1*color_loss(Scale1,gt_down1))  #256
-        scale2color = torch.mean(-1*color_loss(Scale2,gt_down2))  #128
-        scale3color = torch.mean(-1*color_loss(Scale3,gt_down3))  #64
+        color_loss1 = color_loss(inputc,labelc)
         """lap loss"""
         lap0loss = L1_criterion(laplace0,pyr_lap[0])
         lap1loss = L1_criterion(laplace1,pyr_lap[1])
@@ -106,7 +109,11 @@ def train(loader_train,loader_test,net,optimizer):
         ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
         tv_loss = TV_loss(out)
-        loss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1 + 6*ssim_loss +total_laploss
+        """vgg loss"""
+
+
+        loss = scaleloss + 6*ssim_loss +total_laploss
+        # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
         # AvgScale1Loss = AvgScale1Loss + torch.Tensor.item(scale1l1.data)
@@ -125,7 +132,7 @@ def train(loader_train,loader_test,net,optimizer):
             f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 50 == 0:
+        if (epoch+1) % 1000 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test)
@@ -186,6 +193,36 @@ class L1_Charbonnier_loss(torch.nn.Module):
         return loss
 
 
+class PerceptualLoss(_Loss):
+    def __init__(self, ):
+        super(PerceptualLoss, self).__init__()
+        self.vgg = vgg.vgg19(pretrained=True).features
+        for p in self.vgg.parameters():
+            p.requires_grad = False
+        self.vgg.eval()
+
+    def vgg_forward(self, x):
+        output = []
+        for name, module in self.vgg._modules.items():
+            x = module(x)
+            if name == '26':
+                return x
+
+    def preprocess(self, tensor):
+        trsfrm = transforms.Normalize(mean=[0.485, 0.456, 0.406],
+                                      std=[0.229, 0.224, 0.225])
+        res = trsfrm(tensor)
+        return res
+
+    def forward(self, output, label):
+        output = self.preprocess(output)
+        label = self.preprocess(label)
+        feat_a = self.vgg_forward(output)
+        feat_b = self.vgg_forward(label)
+
+        return F.l1_loss(feat_a, feat_b)
+
+
 #TEST!
 if __name__ == "__main__":
 
@@ -201,16 +238,20 @@ if __name__ == "__main__":
     LOSS
     """
     L1_criterion = nn.L1Loss()
-    L1_closs = L1_Charbonnier_loss()
+    # L1_closs = L1_Charbonnier_loss()
+    L1_closs = torch.nn.MSELoss()
     TV_loss = TVLoss()
     mse_loss = torch.nn.MSELoss()
-    color_loss = nn.CosineSimilarity(dim=1,eps=1e-6)
+    vgg_loss = PerceptualLoss()
+    color_loss = ColorLoss()
+
     ssim = pytorch_ssim.SSIM()
     if torch.cuda.is_available():
         mse_loss = mse_loss.cuda()
         L1_criterion = L1_criterion.cuda()
         L1_closs = L1_closs.cuda()
         TV_loss = TV_loss.cuda()
+        vgg_loss = vgg_loss.cuda()
         ssim = ssim.cuda()
         color_loss = color_loss.cuda()
 

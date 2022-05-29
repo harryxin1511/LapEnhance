@@ -35,7 +35,7 @@ dataset=opt.task
 
 img_dir='/home/xin/Experience/dataset/Adobe5K/test/low/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/laploss/'
+output_dir='../Test/v3pl10000/'
 output_decom = '../Test/Decom/'
 output_mask = '../Test/mask/'
 print("pred_dir:",output_dir)
@@ -44,7 +44,7 @@ if not os.path.exists(output_dir):
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
-net = torch.load('../v2_best_trained_moudles/ll45499.pth')
+net = torch.load('../trained_moudles/ll10999.pth')
 print(type(net))
 
 net.eval()

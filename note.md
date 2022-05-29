@@ -10,3 +10,6 @@ psnr 21
 
 #sam feature 9
 psnr 20.6
+
+
+#add vgg loss
