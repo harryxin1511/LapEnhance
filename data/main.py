@@ -16,8 +16,8 @@ from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
-if not os.path.exists('../trained_moudles/'):
-    os.mkdir('../trained_moudles/')
+if not os.path.exists('../net4trained_moudles/'):
+    os.mkdir('../net4trained_moudles/')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
@@ -102,10 +102,10 @@ def train(loader_train,loader_test,net,optimizer):
         """color_loss """
         color_loss1 = color_loss(inputc,labelc)
         """lap loss"""
-        lap0loss = L1_criterion(laplace0,pyr_Atrans[0])
-        lap1loss = L1_criterion(laplace1,pyr_Atrans[1])
-        lap2loss = L1_criterion(laplace2,pyr_Atrans[2])
-        total_laploss = lap0loss+lap1loss+lap2loss
+        # lap0loss = L1_criterion(laplace0,pyr_Atrans[0])
+        # lap1loss = L1_criterion(laplace1,pyr_Atrans[1])
+        # lap2loss = L1_criterion(laplace2,pyr_Atrans[2])
+        # total_laploss = lap0loss+lap1loss+lap2loss
         """ssim loss"""
         ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
@@ -113,7 +113,7 @@ def train(loader_train,loader_test,net,optimizer):
         """vgg loss"""
 
 
-        loss = scaleloss + 6*ssim_loss +total_laploss
+        loss = scaleloss + 6*ssim_loss
         # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)

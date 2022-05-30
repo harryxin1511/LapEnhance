@@ -35,7 +35,7 @@ dataset=opt.task
 
 img_dir='/home/xin/Experience/dataset/Adobe5K/test/low/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/20.89colloss/'
+output_dir='../Test/20.95v4network/'
 output_decom = '../Test/Decom/'
 output_mask = '../Test/mask/'
 print("pred_dir:",output_dir)

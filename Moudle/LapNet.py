@@ -160,7 +160,8 @@ class Lap_Pyramid_Conv(nn.Module):
             up = nn.functional.interpolate(image,mode='bilinear',scale_factor=2)
             if up.shape[2] != level.shape[2] or up.shape[3] != level.shape[3]:
                 up = nn.functional.interpolate(up, size=(level.shape[2], level.shape[3]))
-            image = up + level
+            image = level
+            # print(image.shape)
             pyr_list.append(image)
         return pyr_list
 ## Supervised Attention Module
@@ -227,6 +228,7 @@ class Trans_high(nn.Module):
         feature4 = torch.cat((feature3,copyl0,copy),dim=1)
         # result_highfreq4 = self.conv(self.orb(feature4))
         result_highfreq4 = self.trans_mask_block3(feature4)
+        result_highfreq4 = result_highfreq4 + pyr_high[-4]
         # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
 
@@ -267,13 +269,12 @@ class LapNet(nn.Module):
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
         pyr_A_trans = self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
-        # pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
-        pyr_result = pyr_A_trans
+        pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
         pyr_result = [self.sig(item) for item in pyr_result]
         pyr_result.insert(0,self.sig(fake_B_low))
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A,pyr_A_trans
+        return fake_B_full,pyr_result,pyr_A,fake_B_low
 
 
 
