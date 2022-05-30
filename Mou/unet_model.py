@@ -4,7 +4,8 @@ import time
 import torch
 import torch.nn.functional as F
 from torch import nn
-
+import sys
+sys.path.append('../')
 from Moudle.unet_parts import DoubleConv, Down, Up, OutConv
 
 class PALayer(nn.Module):
@@ -40,7 +41,7 @@ class CALayer(nn.Module):
 
 
 class UNet(nn.Module):
-    def __init__(self, n_channels, n_classes,bilinear=True):
+    def __init__(self, n_channels, n_classes,bilinear=False):
         super(UNet, self).__init__()
         self.n_channels = n_channels
         self.n_classes = n_classes

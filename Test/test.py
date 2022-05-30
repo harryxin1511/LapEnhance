@@ -35,7 +35,7 @@ dataset=opt.task
 
 img_dir='/home/xin/Experience/dataset/Adobe5K/test/low/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/v3pl10000/'
+output_dir='../Test/20.89colloss/'
 output_decom = '../Test/Decom/'
 output_mask = '../Test/mask/'
 print("pred_dir:",output_dir)
@@ -44,7 +44,7 @@ if not os.path.exists(output_dir):
 
 device='cuda' if torch.cuda.is_available() else 'cpu'
 
-net = torch.load('../trained_moudles/ll10999.pth')
+net = torch.load('../trained_moudles/ll1999.pth')
 print(type(net))
 
 net.eval()
@@ -61,6 +61,9 @@ for im in os.listdir(img_dir):
         resize=torchvision.transforms.Resize(512)
         haze1=resize(haze1)
         pred= net(haze1)
+        for idx,image in enumerate(pred[1]):
+            tss = torch.squeeze(image.clamp(0,1).cpu())
+            vutils.save_image(tss, output_mask + im.split('.')[0] + f'_Lap{idx}.png')
         # print(mask)
         if opt.decom:
             for idx,img in enumerate(temp):
@@ -73,6 +76,8 @@ for im in os.listdir(img_dir):
                 # tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
                 vutils.save_image(t, output_mask + im.split('.')[0] + f'_Lapmask{idx}.png')
     ts=torch.squeeze(pred[0].clamp(0,1).cpu())
+    # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
     #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
     vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
+    # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
 

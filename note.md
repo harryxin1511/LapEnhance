@@ -12,4 +12,5 @@ psnr 21
 psnr 20.6
 
 
-#add vgg loss
+#add vgg loss  all vgg loss epoch 20000 
+psnr 22.2

@@ -261,18 +261,19 @@ class LapNet(nn.Module):
         # print((pyr_O[-1].shape))
         # print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
         fake_B_low = self.unet(pyr_A[-1])   #last nomal map
-        fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
+        # fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
         real_A_up = nn.functional.interpolate(pyr_A[-1], size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
         fake_B_up = nn.functional.interpolate(fake_B_low, size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
         pyr_A_trans = self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
-        pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
+        # pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
+        pyr_result = pyr_A_trans
         pyr_result = [self.sig(item) for item in pyr_result]
         pyr_result.insert(0,self.sig(fake_B_low))
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A
+        return fake_B_full,pyr_result,pyr_A,pyr_A_trans
 
 
 

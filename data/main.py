@@ -31,7 +31,8 @@ loaders = {
     'its_train': ITS_train_loader,
     'its_test': ITS_test_loader
 }
-
+from visdom import Visdom
+viz = Visdom()
 """
 损失函数设置为gt和sam的输出，不是与上采样的家和
 
@@ -57,7 +58,7 @@ def train(loader_train,loader_test,net,optimizer):
         net = net.to(opt.device)
         # net = torch.nn.DataParallel(net,de)
         start=time.time()
-        out,pyr_list,pyr_lap = net(x)
+        out,pyr_list,pyr_lap,pyr_Atrans = net(x)
         end = time.time()
         #extact each pyr img
         Scale0 = pyr_list[3] #512
@@ -93,17 +94,17 @@ def train(loader_train,loader_test,net,optimizer):
         #loss = criterion[0](out,y)
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
-        scale1l1 = vgg_loss(Scale1,gt_down1) #256
-        scale2l1 = vgg_loss(Scale2,gt_down2) #128
-        scale2l1 = vgg_loss(Scale2,gt_down2) #128
+        scale1l1 = L1_closs(Scale1,gt_down1) #256
+        scale2l1 = L1_closs(Scale2,gt_down2) #128
+        scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
         scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
         """color_loss """
         color_loss1 = color_loss(inputc,labelc)
         """lap loss"""
-        lap0loss = L1_criterion(laplace0,pyr_lap[0])
-        lap1loss = L1_criterion(laplace1,pyr_lap[1])
-        lap2loss = L1_criterion(laplace2,pyr_lap[2])
+        lap0loss = L1_criterion(laplace0,pyr_Atrans[0])
+        lap1loss = L1_criterion(laplace1,pyr_Atrans[1])
+        lap2loss = L1_criterion(laplace2,pyr_Atrans[2])
         total_laploss = lap0loss+lap1loss+lap2loss
         """ssim loss"""
         ssim_loss = 1 - ssim(out, y)
@@ -127,12 +128,12 @@ def train(loader_train,loader_test,net,optimizer):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-
+        viz.line([loss.item()],[epoch],win='train loss',update='append')
         print(
             f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 1000 == 0:
+        if (epoch+1) % 50 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test)
@@ -163,7 +164,7 @@ def test(net,loader_test):
             inputs,targets =data[0],data[1]
             inputs = inputs.to(opt.device)
             targets = targets.to(opt.device)
-            pred,pyrlist,pyr_A = net(inputs)  # 预测值
+            pred,pyrlist,pyr_A,pyr_Atrans = net(inputs)  # 预测值
             ssim1 = ssim(pred, targets).item()  # 真实值
             psnr1 = psnr(pred, targets)
             ssims.append(ssim1)
@@ -238,8 +239,8 @@ if __name__ == "__main__":
     LOSS
     """
     L1_criterion = nn.L1Loss()
-    # L1_closs = L1_Charbonnier_loss()
-    L1_closs = torch.nn.MSELoss()
+    L1_closs = L1_Charbonnier_loss()
+    # L1_closs = torch.nn.L1Loss()
     TV_loss = TVLoss()
     mse_loss = torch.nn.MSELoss()
     vgg_loss = PerceptualLoss()
