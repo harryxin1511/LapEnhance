@@ -33,9 +33,9 @@ parser.add_argument('--mask',type=int,default=False)
 opt=parser.parse_args()
 dataset=opt.task
 
-img_dir='/home/xin/Experience/dataset/Adobe5K/test/low/'
+img_dir='/home/xin/Experience/dataset/单张/DICM/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/23.12v4network/'
+output_dir='../Test/23.12DICMv4network/'
 output_decom = '../Test/Decom/'
 output_mask = '../Test/mask/'
 print("pred_dir:",output_dir)
@@ -58,8 +58,8 @@ for im in os.listdir(img_dir):
     haze_no=tfs.ToTensor()(haze)[None,::]  # ?
     with torch.no_grad():
         haze1 = haze1.cuda()
-        resize=torchvision.transforms.Resize(512)
-        haze1=resize(haze1)
+        # resize=torchvision.transforms.Resize(512)
+        # haze1=resize(haze1)
         pred= net(haze1)
         for idx,image in enumerate(pred[1]):
             tss = torch.squeeze(image.clamp(0,1).cpu())
