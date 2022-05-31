@@ -107,13 +107,18 @@ def train(loader_train,loader_test,net,optimizer):
         # lap2loss = L1_criterion(laplace2,pyr_Atrans[2])
         # total_laploss = lap0loss+lap1loss+lap2loss
         """ssim loss"""
-        ssim_loss = 1 - ssim(out, y)
+        ssim_loss1 = 1 - ssim(out, y)
+        ssim_loss2 = 1 - ssim(Scale1, gt_down1)
+        ssim_loss3 = 1 - ssim(Scale2, gt_down2)  # 128
+        ssim_loss4 = 1 - ssim(Scale3, gt_down3)  # 64
+        ssim_loss = ssim_loss1 + ssim_loss2 + 2 * ssim_loss3 + 2 * ssim_loss4
+        # ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
         tv_loss = TV_loss(out)
         """vgg loss"""
 
 
-        loss = scaleloss + 6*ssim_loss
+        loss = scaleloss + ssim_loss
         # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
@@ -136,7 +141,7 @@ def train(loader_train,loader_test,net,optimizer):
         if (epoch+1) % 100 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
-                ssim_eval, psnr_eval = test(net, loader_test)
+                ssim_eval, psnr_eval = test(net, loader_test,epoch)
                 print(f'\nstep :{epoch} |ssim:{ssim_eval:.4f}| psnr:{psnr_eval:.4f}')
                 ssims.append(ssim_eval)
                 psnrs.append(psnr_eval)
@@ -147,7 +152,7 @@ def train(loader_train,loader_test,net,optimizer):
                 torch.save(net,f'../trained_moudles/ll{epoch}.pth')
                 list = [epoch, ssim_eval, psnr_eval ]
                 data = pd.DataFrame([list])
-                data.to_csv('./result.csv',mode='a')
+                data.to_csv('./result6000.csv',mode='a')
                 # print(opt.model_dir+'/train_model.pth')
                 print(f'\n model saved at step :{epoch}| max_psnr:{max_psnr:.4f}|max_ssim:{max_ssim:.4f}')
 
