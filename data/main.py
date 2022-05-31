@@ -133,7 +133,7 @@ def train(loader_train,loader_test,net,optimizer):
             f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 50 == 0:
+        if (epoch+1) % 100 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test)
@@ -153,7 +153,7 @@ def train(loader_train,loader_test,net,optimizer):
 
 
 
-def test(net,loader_test):
+def test(net,loader_test,epoch):
     net.eval()
     torch.cuda.empty_cache()
     ssims = []
@@ -175,7 +175,7 @@ def test(net,loader_test):
             img1 = targets[0]
             pic = toPIL(img)
             pic1 = toPIL(img1)
-            pic.save(save_test_path+f'pre{idx}.jpg')
+            pic.save(save_test_path+f'{epoch}'+f'pre{idx}.jpg')
             pic1.save('clear.jpg')
     return np.mean(ssims), np.mean(psnrs)
 
