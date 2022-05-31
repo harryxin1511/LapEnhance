@@ -11,56 +11,6 @@ from Moudle.unet_model import UNet
 w/out  upsample functional kernel
 """
 
-# class CALayer(nn.Module):
-#     def __init__(self, channel, reduction=4, bias=False):
-#         super(CALayer, self).__init__()
-#         # global average pooling: feature --> point
-#         self.avg_pool = nn.AdaptiveAvgPool2d(1)
-#         # feature channel downscale and upscale --> channel weight
-#         self.conv_du = nn.Sequential(
-#                 nn.Conv2d(channel, channel // reduction, 1, padding=0, bias=bias),
-#                 nn.ReLU(inplace=True),
-#                 nn.Conv2d(channel // reduction, channel, 1, padding=0, bias=bias),
-#                 nn.Sigmoid()
-#         )
-#
-#     def forward(self, x):
-#         y = self.avg_pool(x)
-#         y = self.conv_du(y)
-#         return x * y
-#
-# ##########################################################################
-# ## Channel Attention Block (CAB)
-# class CAB(nn.Module):
-#     def __init__(self, n_feat, kernel_size, reduction=4, bias=False):
-#         super(CAB, self).__init__()
-#         modules_body = []
-#         modules_body.append(conv(n_feat, n_feat, kernel_size, bias=bias))
-#         #modules_body.append(act)
-#         modules_body.append(conv(n_feat, n_feat, kernel_size, bias=bias))
-#
-#         self.CA = CALayer(n_feat, reduction, bias=bias)
-#         self.body = nn.Sequential(*modules_body)
-#
-#     def forward(self, x):
-#         res = self.body(x)
-#         res = self.CA(res)
-#         res += x
-#         return res
-#
-# ## Original Resolution Block (ORB)
-# class ORB(nn.Module):
-#     def __init__(self, n_feat, kernel_size, reduction=4, bias=False, num_cab=8):
-#         super(ORB, self).__init__()
-#         modules_body = []
-#         modules_body = [CAB(n_feat, kernel_size, reduction, bias=bias) for _ in range(num_cab)]
-#         modules_body.append(conv(n_feat, n_feat, kernel_size))
-#         self.body = nn.Sequential(*modules_body)
-#
-#     def forward(self, x):
-#         res = self.body(x)
-#         res += x
-#         return res
 
 def conv(in_channels, out_channels, kernel_size, bias=False, stride = 1):
     return nn.Conv2d(
@@ -160,7 +110,8 @@ class Lap_Pyramid_Conv(nn.Module):
             up = nn.functional.interpolate(image,mode='bilinear',scale_factor=2)
             if up.shape[2] != level.shape[2] or up.shape[3] != level.shape[3]:
                 up = nn.functional.interpolate(up, size=(level.shape[2], level.shape[3]))
-            image = up + level
+            image = level
+            # print(image.shape)
             pyr_list.append(image)
         return pyr_list
 ## Supervised Attention Module
@@ -227,6 +178,7 @@ class Trans_high(nn.Module):
         feature4 = torch.cat((feature3,copyl0,copy),dim=1)
         # result_highfreq4 = self.conv(self.orb(feature4))
         result_highfreq4 = self.trans_mask_block3(feature4)
+        result_highfreq4 = result_highfreq4 + pyr_high[-4]
         # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
 
@@ -261,7 +213,7 @@ class LapNet(nn.Module):
         # print((pyr_O[-1].shape))
         # print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
         fake_B_low = self.unet(pyr_A[-1])   #last nomal map
-        fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
+        # fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
         real_A_up = nn.functional.interpolate(pyr_A[-1], size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
         fake_B_up = nn.functional.interpolate(fake_B_low, size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
@@ -272,7 +224,7 @@ class LapNet(nn.Module):
         pyr_result.insert(0,self.sig(fake_B_low))
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A,pyr_A_trans
+        return fake_B_full,pyr_result,pyr_A,fake_B_low
 
 
 
