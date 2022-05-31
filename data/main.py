@@ -16,8 +16,8 @@ from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
-if not os.path.exists('../net4trained_moudles/'):
-    os.mkdir('../net4trained_moudles/')
+if not os.path.exists('../trained_moudles/'):
+    os.mkdir('../trained_moudles/')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
@@ -68,14 +68,6 @@ def train(loader_train,loader_test,net,optimizer):
         lap0 = pyr_lap[0]  #512
         lap1 = pyr_lap[1]  #256
         lap2 = pyr_lap[2]  #128
-        AvgScale0Loss = 0
-        AvgScale1Loss = 0
-        AvgScale2Loss = 0
-        AvgScale3Loss = 0
-        AvgColor0Loss = 0
-        AvgColor1Loss = 0
-        AvgColor2Loss = 0
-        AvgColor3Loss = 0
         gt_down1 = F.interpolate(y, scale_factor=0.5, mode='bilinear')  # 256
         gt_down2 = F.interpolate(gt_down1, scale_factor=0.5, mode='bilinear')  # 128
         gt_down3 = F.interpolate(gt_down2, scale_factor=0.5, mode='bilinear')  # 64
@@ -102,10 +94,10 @@ def train(loader_train,loader_test,net,optimizer):
         """color_loss """
         color_loss1 = color_loss(inputc,labelc)
         """lap loss"""
-        # lap0loss = L1_criterion(laplace0,pyr_Atrans[0])
-        # lap1loss = L1_criterion(laplace1,pyr_Atrans[1])
-        # lap2loss = L1_criterion(laplace2,pyr_Atrans[2])
-        # total_laploss = lap0loss+lap1loss+lap2loss
+        lap0loss = L1_criterion(laplace0,pyr_Atrans[2])
+        lap1loss = L1_criterion(laplace1,pyr_Atrans[1])
+        lap2loss = L1_criterion(laplace2,pyr_Atrans[0])
+        total_laploss = lap0loss+lap1loss+lap2loss
         """ssim loss"""
         ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
@@ -113,7 +105,7 @@ def train(loader_train,loader_test,net,optimizer):
         """vgg loss"""
 
 
-        loss = scaleloss + 6*ssim_loss
+        loss = scaleloss + 6*ssim_loss +total_laploss
         # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
