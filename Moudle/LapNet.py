@@ -1,15 +1,20 @@
 import time
 import sys
+
+from LapEnhace.Moudle import carefe
+
 sys.path.append('../')
 import torch.nn as nn
 import torch.nn.functional as F
 import torch
 from Moudle.unet_model import UNet
+from Moudle.carefe import CARAFE
 # def default_conv(in_channels, out_channels, kernel_size, bias=True):
 #     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
 """
 w/out  upsample functional kernel
 """
+
 class CALayer(nn.Module):
     def __init__(self, channel, reduction=16, bias=False):
         super(CALayer, self).__init__()
@@ -166,13 +171,17 @@ class SAM(nn.Module):
         x1 = x1*x2
         x1 = x1+x
         return x1, img
-
+# carefe0 = CARAFE(3).cuda()
+# carefe1 = CARAFE(9).cuda()
+# carefe2 = CARAFE(18).cuda()
 
 class Trans_high(nn.Module):
     def __init__(self,  num_high=4):
         super(Trans_high, self).__init__()
         self.sam1 = SAM(9, 3)
         self.sam2 = SAM(18,3)
+        self.carefe1 = CARAFE(9)
+        self.carefe2 = CARAFE(18)
         self.num_high = num_high
         self.conv = nn.Conv2d(15, 3, kernel_size=1, ).cuda()
         #phase1
@@ -203,13 +212,15 @@ class Trans_high(nn.Module):
         feature2,result_highfreq2 = self.sam1(mask,pyr_high[-2])
         setattr(self, 'result_highfreq_{}'.format(str(0)), result_highfreq2) #torch.Size([1, 3, 64, 64])
         # print(self.result_highfreq_0.shape)
-        feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
+        # feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
+        feature2 = self.carefe1(feature2)
         copyl1 = torch.cat((pyr_lap[-3],pyr_lap[-3],pyr_lap[-3]),dim=1)
         feature3 = torch.cat((feature2,copyl1),dim=1)
         feature3 = self.trans_mask_block2(feature3)
         feature3,result_highfreq3 = self.sam2(feature3,pyr_high[-3])
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
-        feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
+        # feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
+        feature3 = self.carefe2(feature3)
         copyl0 = torch.cat((pyr_lap[-4],pyr_lap[-4],pyr_lap[-4]),dim=1)
         copy = torch.cat((pyr_high[-4],pyr_high[-4],pyr_high[-4]),dim=1)
         feature4 = torch.cat((feature3,copyl0,copy),dim=1)
@@ -239,6 +250,7 @@ class LapNet(nn.Module):
         self.trans_high = trans_high.cuda()
         self.unet = UNet(3,3).cuda()
         self.sam = SAM(3,3).cuda()
+        self.carefe0 = CARAFE(3).cuda()
         self.sig = nn.Sigmoid().cuda()
         self.relu = nn.ReLU().cuda()
         # self.orb = ORB(64, 3).cuda()
@@ -251,8 +263,10 @@ class LapNet(nn.Module):
         # print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
         fake_B_low = self.unet(pyr_A[-1])   #last nomal map
         # fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
-        real_A_up = nn.functional.interpolate(pyr_A[-1], size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
-        fake_B_up = nn.functional.interpolate(fake_B_low, size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
+        # real_A_up = nn.functional.interpolate(pyr_A[-1], size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
+        real_A_up = self.carefe0(pyr_A[-1])
+        # fake_B_up = nn.functional.interpolate(fake_B_low, size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
+        fake_B_up = self.carefe0(fake_B_low)
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
         pyr_A_trans = self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量

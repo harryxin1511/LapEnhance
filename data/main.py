@@ -6,6 +6,7 @@ sys.path.append('../')
 sys.path.append('/home/xin/Experience/LapDehaze/data/')
 from torch import nn, optim
 from torchvision import transforms
+from Moudle.carefe import CARAFE
 from Moudle.LapNet import LapNet
 from data.lr_scheduler import lr_schedule_cosdecay
 from data.metrics import ssim, psnr
@@ -16,8 +17,8 @@ from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
-if not os.path.exists('../net4trained_moudles/'):
-    os.mkdir('../net4trained_moudles/')
+if not os.path.exists('../net4.1trained_moudles/'):
+    os.mkdir('../net4.1trained_moudles/')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
