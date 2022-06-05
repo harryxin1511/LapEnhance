@@ -38,25 +38,27 @@ parser=argparse.ArgumentParser()
 parser.add_argument('--task',type=str,default='its',help='its or ots')
 parser.add_argument('--test_imgs',type=str,default='test_imgs',help='Test imgs folder')
 parser.add_argument('--decom',type=int,default=False)
-parser.add_argument('--mask',type=int,default=False)
+parser.add_argument('--mask',type=int,default=True)
 
 opt=parser.parse_args()
 dataset=opt.task
 # img_dir='/home/xin/Experience/dataset/单张/DICM/'
 # dicm01 = '/home/xin/Experience/dataset/单张/DICM/01.jpg'
-img_dir = '/home/xin/Experience/dataset/Adobe5K/test/low/'
+img_dir = '/home/xin/Experience/dataset/ADOBE5K/test/low/'
 normal_dir = '/home/xin/Experience/dataset/Adobe5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/23.89v4.2/'
+output_dir='../Test/R23.6v4.2/'
 output_decom = '../Test/Decom/'
-output_mask = '../Test/mask/'
+output_mask = '../Test/R23.6V4.2mask/'
 print("pred_dir:",output_dir)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
+if not os.path.exists(output_mask):
+    os.mkdir(output_mask)
 
 device='cuda'
 
-net = torch.load('../23.89v4.2_trained_moudles/ll45199.pth').cuda()
+net = torch.load('/home/xin/Experience/drive/net4.2.1trained_moudles/ll80499.pth').cuda()
 print(type(net))
 
 net.eval()
@@ -79,23 +81,13 @@ for im,om in zip(os.listdir(img_dir),os.listdir(normal_dir)):
         pred= net(haze1)
         # psnrs = psnr(pred[0],haze_no,data_range=1.0)
         # print(psnrs)
-        # for idx,image in enumerate(pred[1]):
-        #     tss = torch.squeeze(image.clamp(0,1).cpu())
-        #     vutils.save_image(tss, output_mask + im.split('.')[0] + f'_Lap{idx}.png')
-        # print(mask)
-        if opt.decom:
-            for idx,img in enumerate(temp):
-                t = torch.squeeze(img.clamp(0, 1).cpu())
-            # tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
-                vutils.save_image(t, output_decom + im.split('.')[0] + f'_Lapdecom{idx}.png')
         if opt.mask:
-            for idx, img in enumerate(mask):
+            for idx, img in enumerate(pred[1]):
                 t = torch.squeeze(img.clamp(0, 1).cpu())
-                # tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
                 vutils.save_image(t, output_mask + im.split('.')[0] + f'_Lapmask{idx}.png')
-    ts=torch.squeeze(pred[0].clamp(0,1).cpu())
-    # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
-    #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
-    vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
-    # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
-
+    # ts=torch.squeeze(pred[0].clamp(0,1).cpu())
+    # # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
+    # #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
+    # vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
+    # # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
+    #
