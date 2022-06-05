@@ -16,7 +16,7 @@ w/out  upsample functional kernel
 """
 
 class CALayer(nn.Module):
-    def __init__(self, channel, reduction=16, bias=False):
+    def __init__(self, channel, reduction=4, bias=False):
         super(CALayer, self).__init__()
         # global average pooling: feature --> point
         self.avg_pool = nn.AdaptiveAvgPool2d(1)
@@ -37,14 +37,14 @@ class CALayer(nn.Module):
 ##########################################################################
 ## Channel Attention Block (CAB)
 class CAB(nn.Module):
-    def __init__(self, n_feat, kernel_size, reduction, bias, act):
+    def __init__(self, n_feat, kernel_size, reduction=4):
         super(CAB, self).__init__()
         modules_body = []
-        modules_body.append(conv(n_feat, n_feat, kernel_size, bias=bias))
-        modules_body.append(act)
-        modules_body.append(conv(n_feat, n_feat, kernel_size, bias=bias))
+        modules_body.append(conv(n_feat, n_feat, kernel_size ))
 
-        self.CA = CALayer(n_feat, reduction, bias=bias)
+        modules_body.append(conv(n_feat, n_feat, kernel_size))
+
+        self.CA = CALayer(n_feat, reduction)
         self.body = nn.Sequential(*modules_body)
 
     def forward(self, x):
@@ -96,7 +96,7 @@ class Lap_Pyramid_Conv(nn.Module):
         self.num_high = num_high
         self.kernel = self.gauss_kernel()
 
-    def gauss_kernel(self, device=torch.device('cuda'), channels=3):  # 高斯核
+    def gauss_kernel(self, device='cpu', channels=3):  # 高斯核
         kernel = torch.tensor([[1., 4., 6., 4., 1],
                                [4., 16., 24., 16., 4.],
                                [6., 24., 36., 24., 6.],
@@ -178,22 +178,33 @@ class SAM(nn.Module):
 class Trans_high(nn.Module):
     def __init__(self,  num_high=4):
         super(Trans_high, self).__init__()
-        self.sam1 = SAM(9, 3)
-        self.sam2 = SAM(18,3)
-        self.carefe1 = CARAFE(9)
-        self.carefe2 = CARAFE(18)
+        self.fextact0 = nn.Sequential(conv(3,9,3),CAB(9,3))
+        self.fextact1 = nn.Sequential(conv(3,18,3),CAB(18,3))
+        self.fextact2=  nn.Sequential(conv(3,36,3),CAB(36,3))
+        self.sam1 = SAM(18, 3)
+        self.sam2 = SAM(36, 3)
+        self.unet1 = UNet(3,3)
+        self.unet2 = UNet(3,3)
+        self.unet3 = UNet(3,3)
+
+
+        # self.cat01 = conv(18,18,3)
+        # self.cat12 = conv(36,9,3)
+        self.cat23 = conv(72,36,3)
+        self.carefe1 = CARAFE(18)
+        self.carefe2 = CARAFE(36)
         self.num_high = num_high
-        self.conv = nn.Conv2d(15, 3, kernel_size=1, ).cuda()
+        # self.conv = nn.Conv2d(15, 3, kernel_size=1, ).cuda()
         #phase1
-        model = [nn.Conv2d(9, 64, 3, padding=1)]
+        model = [nn.Conv2d(18, 64, 3, padding=1)]
         model += [UNet(64,64)]
-        model += [nn.Conv2d(64, 9, 3, padding=1)]
+        model += [nn.Conv2d(64, 18, 3, padding=1)]
         self.model = nn.Sequential(*model)
 
         #phase2
         self.trans_mask_block2 = nn.Sequential(*model)
-        self.trans_mask_block2[0] = nn.Conv2d(18,64,3,padding=1)
-        self.trans_mask_block2[-1] = nn.Conv2d(64,18,3,padding=1)
+        self.trans_mask_block2[0] = nn.Conv2d(36,64,3,padding=1)
+        self.trans_mask_block2[-1] = nn.Conv2d(64,36,3,padding=1)
         #phase3
         self.trans_mask_block3 = nn.Sequential(*model)
         self.trans_mask_block3[0] = nn.Conv2d(36, 64, 3, padding=1)
@@ -203,27 +214,22 @@ class Trans_high(nn.Module):
 
     def forward(self, x, pyr_lap, fake_low,pyr_high):   # concat分量 lp分量list 低频处理分量
         pyr_result = []
-        mask = self.model(x)  # 算一个掩码出来
-        #print(mask.shape)
-            #self.trans_mask_block = getattr(self, 'trans_mask_block_{}'.format(str(i)))
-        # mask = nn.functional.interpolate(mask, size=(pyr_lap[-2-i].shape[2], pyr_lap[-2-i].shape[3]))
-            # result_highfreq = torch.mul(pyr_lap[-2-i], mask) + pyr_lap[-2-i]
-            # result_highfreq = torch.mul(pyr_lap[-2-i], mask) + pyr_lap[-2-i]
+        mask = (torch.cat((self.fextact0(pyr_lap[-2]),x),dim=1))
+        mask = self.model(mask)  # 算一个掩码出来
+        # print(mask.shape)
         feature2,result_highfreq2 = self.sam1(mask,pyr_high[-2])
         setattr(self, 'result_highfreq_{}'.format(str(0)), result_highfreq2) #torch.Size([1, 3, 64, 64])
         # print(self.result_highfreq_0.shape)
         # feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
         feature2 = self.carefe1(feature2)
-        copyl1 = torch.cat((pyr_lap[-3],pyr_lap[-3],pyr_lap[-3]),dim=1)
-        feature3 = torch.cat((feature2,copyl1),dim=1)
+
+        feature3 = torch.cat((feature2,self.fextact1(pyr_lap[-3])),dim=1)
         feature3 = self.trans_mask_block2(feature3)
         feature3,result_highfreq3 = self.sam2(feature3,pyr_high[-3])
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         # feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
         feature3 = self.carefe2(feature3)
-        copyl0 = torch.cat((pyr_lap[-4],pyr_lap[-4],pyr_lap[-4]),dim=1)
-        copy = torch.cat((pyr_high[-4],pyr_high[-4],pyr_high[-4]),dim=1)
-        feature4 = torch.cat((feature3,copyl0,copy),dim=1)
+        feature4 = self.cat23(torch.cat((feature3,self.fextact2(pyr_lap[-4])),dim=1))
         # result_highfreq4 = self.conv(self.orb(feature4))
         result_highfreq4 = self.trans_mask_block3(feature4)
         result_highfreq4 = result_highfreq4 + pyr_high[-4]
@@ -247,15 +253,15 @@ class LapNet(nn.Module):
         super(LapNet, self).__init__()
         self.lap_pyramid = Lap_Pyramid_Conv(num_high)
         trans_high = Trans_high(num_high=num_high)
-        self.trans_high = trans_high.cuda()
-        self.unet = UNet(3,3).cuda()
-        self.sam = SAM(3,3).cuda()
-        self.carefe0 = CARAFE(3).cuda()
-        self.sig = nn.Sigmoid().cuda()
-        self.relu = nn.ReLU().cuda()
+        self.trans_high = trans_high
+        self.unet = UNet(3,3)
+        self.sam = SAM(3,3)
+        self.carefe0 = CARAFE(3)
+        self.sig = nn.Sigmoid()
+        self.relu = nn.ReLU()
         # self.orb = ORB(64, 3).cuda()
-        self.conv1 = nn.Conv2d(3,64,kernel_size=3,stride=1,padding=1).cuda()
-        self.conv2 = nn.Conv2d(64,3,kernel_size=3,stride=1,padding=1).cuda()
+        self.conv1 = nn.Conv2d(3,64,kernel_size=3,stride=1,padding=1)
+        self.conv2 = nn.Conv2d(64,3,kernel_size=3,stride=1,padding=1)
     def forward(self, real_A_full):
 
         pyr_A,pyr_O = self.lap_pyramid.pyramid_decom(img=real_A_full) #pyr_a is lap,pyr_0 is ori
@@ -280,8 +286,8 @@ class LapNet(nn.Module):
 
 
 if __name__ == "__main__":
-    device = torch.device("cuda")
-    X = torch.Tensor(1,3,512,512).to(device)
+    device = 'cpu'
+    X = torch.Tensor(1,3,481,640)
     net = LapNet(num_high=3)
     #net = ORB(20,3).cuda()
     y = net(X)

@@ -42,12 +42,12 @@ parser.add_argument('--mask',type=int,default=False)
 
 opt=parser.parse_args()
 dataset=opt.task
-
 # img_dir='/home/xin/Experience/dataset/单张/DICM/'
+# dicm01 = '/home/xin/Experience/dataset/单张/DICM/01.jpg'
 img_dir = '/home/xin/Experience/dataset/Adobe5K/test/low/'
 normal_dir = '/home/xin/Experience/dataset/Adobe5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/23.12multiscalev4/'
+output_dir='../Test/23.89v4.2/'
 output_decom = '../Test/Decom/'
 output_mask = '../Test/mask/'
 print("pred_dir:",output_dir)
@@ -56,7 +56,7 @@ if not os.path.exists(output_dir):
 
 device='cuda'
 
-net = torch.load('../23.12v4netmoudles/ll34499.pth').cuda()
+net = torch.load('../23.89v4.2_trained_moudles/ll45199.pth').cuda()
 print(type(net))
 
 net.eval()
@@ -77,11 +77,11 @@ for im,om in zip(os.listdir(img_dir),os.listdir(normal_dir)):
         # resize=torchvision.transforms.Resize(512)
         # haze1=resize(haze1)
         pred= net(haze1)
-        psnrs = psnr(pred[0],haze_no,data_range=1.0)
-        print(psnrs)
-        for idx,image in enumerate(pred[1]):
-            tss = torch.squeeze(image.clamp(0,1).cpu())
-            vutils.save_image(tss, output_mask + im.split('.')[0] + f'_Lap{idx}.png')
+        # psnrs = psnr(pred[0],haze_no,data_range=1.0)
+        # print(psnrs)
+        # for idx,image in enumerate(pred[1]):
+        #     tss = torch.squeeze(image.clamp(0,1).cpu())
+        #     vutils.save_image(tss, output_mask + im.split('.')[0] + f'_Lap{idx}.png')
         # print(mask)
         if opt.decom:
             for idx,img in enumerate(temp):
