@@ -281,7 +281,7 @@ class LapNet(nn.Module):
         pyr_result.insert(0,self.sig(fake_B_low))
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A,fake_B_low
+        return fake_B_full,pyr_result,pyr_A,pyr_O
 
 
 
