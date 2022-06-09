@@ -222,10 +222,11 @@ class Trans_high(nn.Module):
         # print(self.result_highfreq_0.shape)
         # feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
         feature2 = self.carefe1(feature2)
-
         feature3 = torch.cat((feature2,self.fextact1(pyr_lap[-3])),dim=1)
         feature3 = self.trans_mask_block2(feature3)
+        temp0 = feature3
         feature3,result_highfreq3 = self.sam2(feature3,pyr_high[-3])
+        temp = feature3
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         # feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
         feature3 = self.carefe2(feature3)
@@ -243,7 +244,7 @@ class Trans_high(nn.Module):
 
         pyr_result.append(fake_low)  # 低频分量追加到后面即可
         #print((pyr_result[0].shape))
-        return pyr_result
+        return pyr_result,temp,temp0
 
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
@@ -275,19 +276,20 @@ class LapNet(nn.Module):
         fake_B_up = self.carefe0(fake_B_low)
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
-        pyr_A_trans = self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
+        pyr_A_trans,temp,temp0= self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
+        print(feature3.shape)
         pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
         pyr_result = [self.sig(item) for item in pyr_result]
         pyr_result.insert(0,self.sig(fake_B_low))
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A,pyr_O
+        return fake_B_full,pyr_result,pyr_A,feature3
 
 
 
 if __name__ == "__main__":
     device = 'cpu'
-    X = torch.Tensor(1,3,481,640)
+    X = torch.Tensor(1,3,512,512)
     net = LapNet(num_high=3)
     #net = ORB(20,3).cuda()
     y = net(X)

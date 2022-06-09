@@ -10,6 +10,9 @@ import torchvision.utils as vutils
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 import sys
+
+from LapEnhace.data.lib.utils import print_network
+
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 from piq import psnr
 sys.path.append('../')
@@ -37,9 +40,9 @@ abs=os.getcwd()+'/'
 
 parser=argparse.ArgumentParser()
 parser.add_argument('--task',type=str,default='its',help='its or ots')
-parser.add_argument('--test_imgs',type=str,default='test_imgs',help='Test imgs folder')
+parser.add_argument('--feature',type=int,default=True,help='Test imgs folder')
 parser.add_argument('--decom',type=int,default=False)
-parser.add_argument('--decomori',type=int,default=True)
+parser.add_argument('--decomori',type=int,default=False)
 parser.add_argument('--mask',type=int,default=False)
 
 opt=parser.parse_args()
@@ -53,6 +56,7 @@ output_dir='../Test/R23.6v4.2/'
 output_decom = '../Test/Decom/'
 output_decomori = '../Test/Decomori/'
 output_mask = '../Test/R23.6V4.2mask/'
+output_features = '../Test/featuremap/'
 print("pred_dir:",output_dir)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -60,6 +64,8 @@ if not os.path.exists(output_mask):
     os.mkdir(output_mask)
 if not os.path.exists(output_decomori):
     os.mkdir(output_mask)
+if not os.path.exists(output_features):
+    os.mkdir(output_features)
 
 device='cuda'
 
@@ -95,6 +101,14 @@ for im in os.listdir(img_dir):
             for idx, img in enumerate(pred[-1]):
                 t = torch.squeeze(img.clamp(0, 1).cpu())
                 vutils.save_image(t, output_decomori + im.split('.')[0] + f'_Lapde{idx}.png')
+        if opt.feature:
+            # for idx, img in enumerate(pred[-1]):
+                img1 = pred[-1]
+                #t = torch.squeeze(img.clamp(0, 1).cpu())
+                img = img1.clamp(0,1).squeeze(0).cpu()
+                for idx in range(36):
+                    vutils.save_image(img[idx,:,:], output_features + im.split('.')[0] + f'_Lapfe{idx}.png')
+
     # ts=torch.squeeze(pred[0].clamp(0,1).cpu())
     # # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
     # #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
