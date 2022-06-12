@@ -17,8 +17,8 @@ from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
-if not os.path.exists('../net4.2.1trained_moudles/'):
-    os.mkdir('../net4.2.1trained_moudles/')
+if not os.path.exists('/home/xin/Experience/drive/gsnet4.3'):
+    os.mkdir('/home/xin/Experience/drive/gsnet4.3')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
@@ -33,7 +33,7 @@ loaders = {
     'its_test': ITS_test_loader
 }
 from visdom import Visdom
-viz = Visdom()
+# viz = Visdom()
 """
 损失函数设置为gt和sam的输出，不是与上采样的家和
 
@@ -99,7 +99,7 @@ def train(loader_train,loader_test,net,optimizer):
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
-        scaleloss = scale0l1 + scale1l1 + scale2l1 + scale3l1
+        scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
         """color_loss """
         color_loss1 = color_loss(inputc,labelc)
         """lap loss"""
@@ -112,14 +112,14 @@ def train(loader_train,loader_test,net,optimizer):
         ssim_loss2 = 1 - ssim(Scale1, gt_down1)
         ssim_loss3 = 1 - ssim(Scale2, gt_down2)  # 128
         ssim_loss4 = 1 - ssim(Scale3, gt_down3)  # 64
-        ssim_loss = ssim_loss1 + ssim_loss2 +  ssim_loss3 +  ssim_loss4
+        ssim_loss = ssim_loss1 + ssim_loss2 +  2*ssim_loss3 + 2*ssim_loss4
         # ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
         tv_loss = TV_loss(out)
         """vgg loss"""
 
 
-        loss = scaleloss + ssim_loss
+        loss = scaleloss +ssim_loss
         # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
@@ -134,12 +134,11 @@ def train(loader_train,loader_test,net,optimizer):
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
-        viz.line([loss.item()],[epoch],win='train loss',update='append')
-        print(
-            f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
+        # viz.line([loss.item()],[epoch],win='train loss',update='append')
+        print( f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 100 == 0:
+        if (epoch+1) % 1000 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test,epoch)
@@ -150,10 +149,10 @@ def train(loader_train,loader_test,net,optimizer):
                     max_ssim = max(max_ssim, ssim_eval)
                     max_psnr = max(max_psnr, psnr_eval)
                 # torch.save(net.state_dict(),opt.model_dir+'/train_model.pth')
-                torch.save(net,f'../net4.2.1trained_moudles/ll{epoch}.pth')
+                torch.save(net,f'/home/xin/Experience/drive/gsnet4.3/ll{epoch}.pth')
                 list = [epoch, ssim_eval, psnr_eval ]
                 data = pd.DataFrame([list])
-                data.to_csv('./result43.csv',mode='a')
+                data.to_csv('./result.csv',mode='a')
                 # print(opt.model_dir+'/train_model.pth')
                 print(f'\n model saved at step :{epoch}| max_psnr:{max_psnr:.4f}|max_ssim:{max_ssim:.4f}')
 
@@ -237,8 +236,8 @@ if __name__ == "__main__":
     loader_train = loaders[opt.trainset]    # its_train
     loader_test = loaders[opt.testset]      # its_test
     net = model[opt.net]
-    if torch.cuda.device_count() > 0:
-        net = torch.nn.DataParallel(net,device_ids=[0,1])
+    # if torch.cuda.device_count() > 0:
+    #     net = torch.nn.DataParallel(net,device_ids=[0,1])
     net = net.to(opt.device)
 
     """

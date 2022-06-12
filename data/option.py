@@ -22,8 +22,8 @@ parser.add_argument('--perloss',default=True,action='store_true',help='perceptua
 parser.add_argument('--net',type=str,default='ConMixer')
 #parser.add_argument('--model_dir',type=str,default= r'C:\jgl\yolov4\trained_moudles')
 parser.add_argument('--device',type=str,default='Automatic detection')
-parser.add_argument('--batch_size', default=4, type=int, help='batch size')
-parser.add_argument('--epoch', default=60000, type=int, help='number of total epochs to run')
+parser.add_argument('--batch_size', default=1, type=int, help='batch size')
+parser.add_argument('--epoch', default=90000, type=int, help='number of total epochs to run')
 parser.add_argument('--warmup_epoch', default=10, type=int, help='the num of warmup epochs')
 parser.add_argument('--init_lr', default=2e-4, type=float, help='a low initial learning rata for adamw optimizer')
 parser.add_argument('--wd', default=0.5, type=float, help='a high weight decay setting for adamw optimizer')
@@ -95,7 +95,7 @@ crop_size = opt.crop_size
 # path = r'C:\Users\User\Desktop\4kdataset'
 # ITS_train_loader = DataLoader(dataset=RESIDE_Dataset(path , train=True, size=[2160,3840]), batch_size=batch_size,shuffle=True)
 # ITS_test_loader = DataLoader(dataset=RESIDE_Dataset(path + '/test/', train=False, size=[2160,3840]), batch_size=batch_size,shuffle=True)
-route = '/home/xin/Experience/dataset/Adobe5K/'
+route = '/home/xin/Experience/dataset/ADOBE5K/'
 ITS_train_loader = DataLoader(dataset=TheDataset(route=route), batch_size=batch_size,shuffle=True)
 ITS_test_loader = DataLoader(dataset=TheDataset(route=route,phase='test'), batch_size=batch_size,shuffle=True)
 # ITS_eval_loader = DataLoader(dataset=TheDataset(route=route,phase='eval'), batch_size=batch_size,shuffle=True)

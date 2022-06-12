@@ -96,7 +96,7 @@ class Lap_Pyramid_Conv(nn.Module):
         self.num_high = num_high
         self.kernel = self.gauss_kernel()
 
-    def gauss_kernel(self, device='cpu', channels=3):  # 高斯核
+    def gauss_kernel(self, channels=3):  # 高斯核
         kernel = torch.tensor([[1., 4., 6., 4., 1],
                                [4., 16., 24., 16., 4.],
                                [6., 24., 36., 24., 6.],
@@ -104,7 +104,7 @@ class Lap_Pyramid_Conv(nn.Module):
                                [1., 4., 6., 4., 1.]])
         kernel /= 256.
         kernel = kernel.repeat(channels, 1, 1, 1)
-        kernel = kernel.to(device)
+        kernel = kernel.cuda()
         return kernel
 
     def downsample(self, x):
@@ -120,9 +120,9 @@ class Lap_Pyramid_Conv(nn.Module):
         return self.conv_gauss(x_up, 4 * self.kernel)
 
     def conv_gauss(self, img, kernel):  # 高斯卷积
-        # img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect')
-        # out = torch.nn.functional.conv2d(img, kernel, groups=img.shape[1])
-        return img
+        img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect')
+        out = torch.nn.functional.conv2d(img, kernel, groups=img.shape[1]).cuda()
+        return out
 
     def pyramid_decom(self, img):  # 拉普拉斯金字塔高频分量和低频分量的区分
         current = img
@@ -277,19 +277,19 @@ class LapNet(nn.Module):
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
         pyr_A_trans,temp,temp0= self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
-        print(feature3.shape)
+        # print(temp0.shape)
         pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
         pyr_result = [self.sig(item) for item in pyr_result]
         pyr_result.insert(0,self.sig(fake_B_low))
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A,feature3
+        return fake_B_full,pyr_result,pyr_A,temp0
 
 
 
 if __name__ == "__main__":
-    device = 'cpu'
-    X = torch.Tensor(1,3,512,512)
-    net = LapNet(num_high=3)
+    device = 'cuda'
+    X = torch.Tensor(1,3,512,512).cuda()
+    net = LapNet(num_high=3).cuda()
     #net = ORB(20,3).cuda()
     y = net(X)

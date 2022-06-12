@@ -15,4 +15,9 @@ psnr 20.6
 #add vgg loss  all vgg loss epoch 20000 
 psnr 22.2
 
-### remove scale3
+###  loss = scaleloss + 6*ssim_loss
+23.49
+
+###   gs filter  loss = scaleloss + ssim_loss
+
+### use sam module 
