@@ -1,8 +1,8 @@
 import time
 import sys
-
+import os
 from LapEnhace.Moudle import carefe
-
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 sys.path.append('../')
 import torch.nn as nn
 import torch.nn.functional as F
@@ -166,11 +166,13 @@ class SAM(nn.Module):
 
     def forward(self, x, x_img):        #x :feature x_img:original img
         x1 = self.conv1(x)
-        img = self.conv2(x) + x_img
+        lap_map = self.conv2(x)
+        img =  lap_map + x_img
+
         x2 = torch.sigmoid(self.conv3(img))
         x1 = x1*x2
         x1 = x1+x
-        return x1, img
+        return x1, img,lap_map
 # carefe0 = CARAFE(3).cuda()
 # carefe1 = CARAFE(9).cuda()
 # carefe2 = CARAFE(18).cuda()
@@ -183,6 +185,7 @@ class Trans_high(nn.Module):
         self.fextact2=  nn.Sequential(conv(3,36,3),CAB(36,3))
         self.sam1 = SAM(18, 3)
         self.sam2 = SAM(36, 3)
+        self.sam3 = SAM(36,3)
         self.unet1 = UNet(3,3)
         self.unet2 = UNet(3,3)
         self.unet3 = UNet(3,3)
@@ -214,10 +217,11 @@ class Trans_high(nn.Module):
 
     def forward(self, x, pyr_lap, fake_low,pyr_high):   # concat分量 lp分量list 低频处理分量
         pyr_result = []
+        pyr_lap1 = []
         mask = (torch.cat((self.fextact0(pyr_lap[-2]),x),dim=1))
         mask = self.model(mask)  # 算一个掩码出来
         # print(mask.shape)
-        feature2,result_highfreq2 = self.sam1(mask,pyr_high[-2])
+        feature2,result_highfreq2,lap2 = self.sam1(mask,pyr_high[-2])
         setattr(self, 'result_highfreq_{}'.format(str(0)), result_highfreq2) #torch.Size([1, 3, 64, 64])
         # print(self.result_highfreq_0.shape)
         # feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
@@ -225,7 +229,7 @@ class Trans_high(nn.Module):
         feature3 = torch.cat((feature2,self.fextact1(pyr_lap[-3])),dim=1)
         feature3 = self.trans_mask_block2(feature3)
         temp0 = feature3
-        feature3,result_highfreq3 = self.sam2(feature3,pyr_high[-3])
+        feature3,result_highfreq3,lap3 = self.sam2(feature3,pyr_high[-3])
         temp = feature3
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         # feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
@@ -236,15 +240,15 @@ class Trans_high(nn.Module):
         result_highfreq4 = result_highfreq4 + pyr_high[-4]
         # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
-
-
+        pyr_lap1.append(lap2)
+        pyr_lap1.append(lap3)
         for i in reversed(range(self.num_high)):
             result_highfreq = getattr(self, 'result_highfreq_{}'.format(str(i)))
             pyr_result.append(result_highfreq)
 
         pyr_result.append(fake_low)  # 低频分量追加到后面即可
         #print((pyr_result[0].shape))
-        return pyr_result,temp,temp0
+        return pyr_result,pyr_lap1,   temp,temp0
 
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
@@ -256,7 +260,6 @@ class LapNet(nn.Module):
         trans_high = Trans_high(num_high=num_high)
         self.trans_high = trans_high
         self.unet = UNet(3,3)
-        self.sam = SAM(3,3)
         self.carefe0 = CARAFE(3)
         self.sig = nn.Sigmoid()
         self.relu = nn.ReLU()
@@ -276,14 +279,14 @@ class LapNet(nn.Module):
         fake_B_up = self.carefe0(fake_B_low)
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
-        pyr_A_trans,temp,temp0= self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
+        pyr_A_trans,pyr_lap1,temp,temp0= self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
         # print(temp0.shape)
         pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
         pyr_result = [self.sig(item) for item in pyr_result]
         pyr_result.insert(0,self.sig(fake_B_low))
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A,temp0
+        return fake_B_full,pyr_result,pyr_A,pyr_lap1
 
 
 
@@ -293,3 +296,6 @@ if __name__ == "__main__":
     net = LapNet(num_high=3).cuda()
     #net = ORB(20,3).cuda()
     y = net(X)
+    lap_list = y[-1]
+    for img in lap_list:
+        print(img.shape)

@@ -17,8 +17,8 @@ from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
-if not os.path.exists('/home/xin/Experience/drive/gsnet4.3'):
-    os.mkdir('/home/xin/Experience/drive/gsnet4.3')
+if not os.path.exists('/home/xin/Experience/drive/srmnet4.3'):
+    os.mkdir('/home/xin/Experience/drive/srmnet4.3')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
@@ -59,7 +59,7 @@ def train(loader_train,loader_test,net,optimizer):
         net = net.to(opt.device)
         # net = torch.nn.DataParallel(net,de)
         start=time.time()
-        out,pyr_list,pyr_lap,pyr_Atrans = net(x)
+        out,pyr_list,pyr_lap,pyr_lape = net(x)
         end = time.time()
         #extact each pyr img
         Scale0 = pyr_list[3] #512
@@ -149,10 +149,10 @@ def train(loader_train,loader_test,net,optimizer):
                     max_ssim = max(max_ssim, ssim_eval)
                     max_psnr = max(max_psnr, psnr_eval)
                 # torch.save(net.state_dict(),opt.model_dir+'/train_model.pth')
-                torch.save(net,f'/home/xin/Experience/drive/gsnet4.3/ll{epoch}.pth')
+                torch.save(net,f'/home/xin/Experience/drive/srmnet4.3/ll{epoch}.pth')
                 list = [epoch, ssim_eval, psnr_eval ]
                 data = pd.DataFrame([list])
-                data.to_csv('./result.csv',mode='a')
+                data.to_csv('./srm_result.csv',mode='a')
                 # print(opt.model_dir+'/train_model.pth')
                 print(f'\n model saved at step :{epoch}| max_psnr:{max_psnr:.4f}|max_ssim:{max_ssim:.4f}')
 
