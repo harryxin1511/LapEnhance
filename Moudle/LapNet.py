@@ -185,7 +185,7 @@ class Trans_high(nn.Module):
         self.fextact2=  nn.Sequential(conv(3,36,3),CAB(36,3))
         self.sam1 = SAM(18, 3)
         self.sam2 = SAM(36, 3)
-        self.sam3 = SAM(36,3)
+        self.sam3 = SAM(3,3)
         self.unet1 = UNet(3,3)
         self.unet2 = UNet(3,3)
         self.unet3 = UNet(3,3)

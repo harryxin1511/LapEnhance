@@ -8,6 +8,7 @@ from torch import nn, optim
 from torchvision import transforms
 from Moudle.carefe import CARAFE
 from Moudle.LapNet import LapNet
+from Moudle.LapNet import Lap_Pyramid_Conv
 from data.lr_scheduler import lr_schedule_cosdecay
 from data.metrics import ssim, psnr
 from data.option import opt, ITS_train_loader, ITS_test_loader
@@ -43,6 +44,7 @@ def train(loader_train,loader_test,net,optimizer):
     max_psnr = 0
     ssims = []
     psnrs = []
+    decomori = Lap_Pyramid_Conv()
     count =0
     print('train from scratch---------------------------')
     for epoch in range(opt.epoch):
@@ -66,28 +68,28 @@ def train(loader_train,loader_test,net,optimizer):
         Scale1 = pyr_list[2] #256
         Scale2 = pyr_list[1] #128
         Scale3 = pyr_list[0] #64
-        lap0 = pyr_lap[0]  #512
-        lap1 = pyr_lap[1]  #256
-        lap2 = pyr_lap[2]  #128
-        AvgScale0Loss = 0
-        AvgScale1Loss = 0
-        AvgScale2Loss = 0
-        AvgScale3Loss = 0
-        AvgColor0Loss = 0
-        AvgColor1Loss = 0
-        AvgColor2Loss = 0
-        AvgColor3Loss = 0
-        gt_down1 = F.interpolate(y, scale_factor=0.5, mode='bilinear')  # 256
-        gt_down2 = F.interpolate(gt_down1, scale_factor=0.5, mode='bilinear')  # 128
-        gt_down3 = F.interpolate(gt_down2, scale_factor=0.5, mode='bilinear')  # 64
+        #gt_down
+        orilist = decomori.pyramid_decom(y)[1]
+        gt_down1 = orilist[1]  # 256
+        gt_down2 = orilist[2] # 128
+        gt_down3 = orilist[3]  # 64
 
         reup1 = F.interpolate(gt_down3, scale_factor=2, mode='bilinear')  # 128
         reup2 = F.interpolate(gt_down2, scale_factor=2, mode='bilinear')  # 256
         reup3 = F.interpolate(gt_down1, scale_factor=2, mode='bilinear')  # 512
-
-        laplace0 = y-reup3  #512
-        laplace1 = gt_down1 - reup2 #256
-        laplace2 = gt_down2 - reup1 #128
+        #lap_gt
+        lapgtlist = decomori.pyramid_decom(y)[0]
+        lap0_gt = lapgtlist[-2]  #128
+        lap1_gt = lapgtlist[-3]
+        # print(lap1_gt.shape)
+        #lap_enhance
+        lap0 = pyr_lape[0]   #128
+        lap1 = pyr_lape[1]   #256
+        # print(lap1.shape)
+        #lap loss
+        laploss0 = L1_criterion(lap0_gt,lap0)
+        laploss1 = L1_criterion(lap1_gt,lap1)
+        total_laploss = laploss0+laploss1
 
         blur_rgb = Blur(3).cuda()
         inputc = blur_rgb(Scale0)
@@ -96,7 +98,6 @@ def train(loader_train,loader_test,net,optimizer):
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
         scale1l1 = L1_closs(Scale1,gt_down1) #256
-        scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
         scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
@@ -119,7 +120,7 @@ def train(loader_train,loader_test,net,optimizer):
         """vgg loss"""
 
 
-        loss = scaleloss +ssim_loss
+        loss = scaleloss +ssim_loss +total_laploss
         # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
