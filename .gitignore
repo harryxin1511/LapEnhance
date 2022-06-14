@@ -10,7 +10,7 @@ Test/mask
 Test/pred_Lap:wocolorloss
 Test/test_imgs
 Test/lapdecom.py
-
+*.pyc
 
 
 
