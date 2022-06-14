@@ -18,8 +18,8 @@ from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
 device_id =[]
-if not os.path.exists('/home/xin/Experience/drive/srmnet4.3'):
-    os.mkdir('/home/xin/Experience/drive/srmnet4.3')
+if not os.path.exists('/home/xin/Experience/drive/srmnet4.4'):
+    os.mkdir('/home/xin/Experience/drive/srmnet4.4')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
@@ -34,7 +34,7 @@ loaders = {
     'its_test': ITS_test_loader
 }
 from visdom import Visdom
-# viz = Visdom()
+viz = Visdom(env='feature_maps')
 """
 损失函数设置为gt和sam的输出，不是与上采样的家和
 
@@ -79,21 +79,20 @@ def train(loader_train,loader_test,net,optimizer):
         reup3 = F.interpolate(gt_down1, scale_factor=2, mode='bilinear')  # 512
         #lap_gt
         lapgtlist = decomori.pyramid_decom(y)[0]
-        lap0_gt = lapgtlist[-2]  #128
+        lap0_gt = lapgtlist[-2]  # 128
         lap1_gt = lapgtlist[-3]
+        lap2_gt = lapgtlist[-4]
         # print(lap1_gt.shape)
-        #lap_enhance
-        lap0 = pyr_lape[0]   #128
-        lap1 = pyr_lape[1]   #256
+        # lap_enhance
+        lap0 = pyr_lape[0]  # 128
+        lap1 = pyr_lape[1]  # 256
+        lap2 = pyr_lape[2]  # 512
         # print(lap1.shape)
-        #lap loss
-        laploss0 = L1_criterion(lap0_gt,lap0)
-        laploss1 = L1_criterion(lap1_gt,lap1)
-        total_laploss = laploss0+laploss1
-
-        blur_rgb = Blur(3).cuda()
-        inputc = blur_rgb(Scale0)
-        labelc = blur_rgb(y)
+        """lap loss"""
+        laploss0 = L1_criterion(lap0_gt, lap0)
+        laploss1 = L1_criterion(lap1_gt, lap1)
+        laploss2 = L1_criterion(lap2_gt, lap2)
+        total_laploss = laploss0 + laploss1 + laploss2
         #loss = criterion[0](out,y)
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
@@ -102,12 +101,10 @@ def train(loader_train,loader_test,net,optimizer):
         scale3l1 = L1_closs(Scale3,gt_down3) #64
         scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
         """color_loss """
+        blur_rgb = Blur(3).cuda()
+        inputc = blur_rgb(Scale0)
+        labelc = blur_rgb(y)
         color_loss1 = color_loss(inputc,labelc)
-        """lap loss"""
-        # lap0loss = L1_criterion(laplace0,pyr_Atrans[0])
-        # lap1loss = L1_criterion(laplace1,pyr_Atrans[1])
-        # lap2loss = L1_criterion(laplace2,pyr_Atrans[2])
-        # total_laploss = lap0loss+lap1loss+lap2loss
         """ssim loss"""
         ssim_loss1 = 1 - ssim(out, y)
         ssim_loss2 = 1 - ssim(Scale1, gt_down1)
@@ -118,7 +115,8 @@ def train(loader_train,loader_test,net,optimizer):
         """tv_loss"""
         tv_loss = TV_loss(out)
         """vgg loss"""
-
+        viz.images(lap2,win='pred')
+        viz.images(lap2_gt,win='gt')
 
         loss = scaleloss +ssim_loss +total_laploss
         # loss = scaleloss
@@ -150,7 +148,7 @@ def train(loader_train,loader_test,net,optimizer):
                     max_ssim = max(max_ssim, ssim_eval)
                     max_psnr = max(max_psnr, psnr_eval)
                 # torch.save(net.state_dict(),opt.model_dir+'/train_model.pth')
-                torch.save(net,f'/home/xin/Experience/drive/srmnet4.3/ll{epoch}.pth')
+                torch.save(net,f'/home/xin/Experience/drive/srmnet4.4/ll{epoch}.pth')
                 list = [epoch, ssim_eval, psnr_eval ]
                 data = pd.DataFrame([list])
                 data.to_csv('./srm_result.csv',mode='a')

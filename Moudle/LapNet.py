@@ -236,11 +236,13 @@ class Trans_high(nn.Module):
         feature3 = self.carefe2(feature3)
         feature4 = self.cat23(torch.cat((feature3,self.fextact2(pyr_lap[-4])),dim=1))
         # result_highfreq4 = self.conv(self.orb(feature4))
-        result_highfreq4 = self.trans_mask_block3(feature4)
-        result_highfreq4 = result_highfreq4 + pyr_high[-4]
-        # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
+        feature4 = self.trans_mask_block3(feature4)
         pyr_lap1.append(lap2)
         pyr_lap1.append(lap3)
+        pyr_lap1.append(feature4)
+        result_highfreq4 = feature4 + pyr_high[-4]
+        # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
+
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
 
         for i in reversed(range(self.num_high)):

@@ -20,4 +20,5 @@ psnr 22.2
 
 ###   gs filter  loss = scaleloss + ssim_loss
 
-### use sam module 
+### srm net 4.3
+23.7  w/o lapmap in last phase
