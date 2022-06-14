@@ -14,6 +14,7 @@ from data.metrics import ssim, psnr
 from data.option import opt, ITS_train_loader, ITS_test_loader
 import lib.pytorch_ssim as pytorch_ssim
 from lib.utils import TVLoss, print_network
+### ggggggg
 from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
@@ -86,7 +87,7 @@ def train(loader_train,loader_test,net,optimizer):
         # lap_enhance
         lap0 = pyr_lape[0]  # 128
         lap1 = pyr_lape[1]  # 256
-        lap2 = pyr_lape[2]  # 512
+        # lap2 = pyr_lape[2]  # 512
         # print(lap1.shape)
         """lap loss"""
         laploss0 = L1_criterion(lap0_gt, lap0)
@@ -115,8 +116,8 @@ def train(loader_train,loader_test,net,optimizer):
         """tv_loss"""
         tv_loss = TV_loss(out)
         """vgg loss"""
-        viz.images(lap2,win='pred')
-        viz.images(lap2_gt,win='gt')
+        # viz.images(lap2,win='pred')
+        # viz.images(lap2_gt,win='gt')
 
         loss = scaleloss +ssim_loss +total_laploss
         # loss = scaleloss
