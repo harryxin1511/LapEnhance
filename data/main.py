@@ -2,8 +2,8 @@ import numpy as np
 import time
 import torch
 import sys,os
-sys.path.append('..')
-sys.path.append('/home/xin/Experience/LapDehaze/data')
+sys.path.append('../')
+sys.path.append('/home/xin/Experience/LapDehaze/data/')
 from torch import nn, optim
 from torchvision import transforms
 from Moudle.carefe import CARAFE
@@ -91,8 +91,8 @@ def train(loader_train,loader_test,net,optimizer):
         """lap loss"""
         laploss0 = L1_criterion(lap0_gt, lap0)
         laploss1 = L1_criterion(lap1_gt, lap1)
-        # laploss2 = L1_criterion(lap2_gt, lap2)
-        total_laploss = laploss0 + laploss1
+        laploss2 = L1_criterion(lap2_gt, lap2)
+        total_laploss = laploss0 + laploss1 + laploss2
         #loss = criterion[0](out,y)
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512

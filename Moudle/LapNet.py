@@ -1,7 +1,7 @@
 import time
 import sys
 import os
-sys.path.append('../')
+from LapEnhace.Moudle import carefe
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 sys.path.append('../')
 import torch.nn as nn
@@ -11,7 +11,7 @@ from Moudle.unet_model import UNet
 from Moudle.carefe import CARAFE
 # def default_conv(in_channels, out_channels, kernel_size, bias=True):
 #     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
-"""con
+"""
 w/out  upsample functional kernel
 """
 
@@ -239,7 +239,7 @@ class Trans_high(nn.Module):
         feature4 = self.trans_mask_block3(feature4)
         pyr_lap1.append(lap2)
         pyr_lap1.append(lap3)
-        # pyr_lap1.append(feature4)
+        pyr_lap1.append(feature4)
         result_highfreq4 = feature4 + pyr_high[-4]
         # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
 
