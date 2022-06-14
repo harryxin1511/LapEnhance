@@ -1,7 +1,6 @@
 import time
 import sys
 import os
-from LapEnhace.Moudle import carefe
 os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 sys.path.append('../')
 import torch.nn as nn
