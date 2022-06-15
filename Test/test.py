@@ -13,7 +13,7 @@ import sys
 from LapEnhace.Moudle.LapNet import Lap_Pyramid_Conv
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+# os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 from piq import psnr
 sys.path.append('../')
 sys.path.append('../')

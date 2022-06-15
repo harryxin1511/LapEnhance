@@ -21,7 +21,7 @@ parser.add_argument('--qkv_bias', type=bool, default=True)
 parser.add_argument('--perloss',default=True,action='store_true',help='perceptual loss')
 parser.add_argument('--net',type=str,default='ConMixer')
 #parser.add_argument('--model_dir',type=str,default= r'C:\jgl\yolov4\trained_moudles')
-parser.add_argument('--device',type=str,default='Automatic detection')
+parser.add_argument('--device',type=str,default='cuda')
 parser.add_argument('--batch_size', default=1, type=int, help='batch size')
 parser.add_argument('--epoch', default=90000, type=int, help='number of total epochs to run')
 parser.add_argument('--warmup_epoch', default=10, type=int, help='the num of warmup epochs')
@@ -35,7 +35,7 @@ parser.add_argument('--mixup', default=0.8, type=float, help='using mixup and se
 parser.add_argument('--crop_size', type=int, default=256, help='Takes effect when using --crop ')
 parser.add_argument('--no_lr_sche',default=False,action='store_true',help='no lr cos schedule')
 opt = parser.parse_args()
-opt.device = 'cuda' if torch.cuda.is_available() else 'cpu'
+# opt.device = 'cuda' if torch.cuda.is_available() else 'cpu'
 
 batch_size = opt.batch_size
 crop_size = opt.crop_size

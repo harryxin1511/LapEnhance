@@ -1,7 +1,6 @@
 import time
 import sys
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 sys.path.append('../')
 import torch.nn as nn
 import torch.nn.functional as F
@@ -103,7 +102,7 @@ class Lap_Pyramid_Conv(nn.Module):
                                [1., 4., 6., 4., 1.]])
         kernel /= 256.
         kernel = kernel.repeat(channels, 1, 1, 1)
-        kernel = kernel.cuda()
+        kernel = kernel.cuda(0)
         return kernel
 
     def downsample(self, x):
@@ -119,7 +118,7 @@ class Lap_Pyramid_Conv(nn.Module):
         return self.conv_gauss(x_up, 4 * self.kernel)
 
     def conv_gauss(self, img, kernel):  # 高斯卷积
-        img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect')
+        img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect').cuda(0)
         out = torch.nn.functional.conv2d(img, kernel, groups=img.shape[1]).cuda()
         return out
 
@@ -184,12 +183,11 @@ class Trans_high(nn.Module):
         self.fextact2=  nn.Sequential(conv(3,36,3),CAB(36,3))
         self.sam1 = SAM(18, 3)
         self.sam2 = SAM(36, 3)
-        self.sam3 = SAM(3,3)
-        self.unet1 = UNet(3,3)
-        self.unet2 = UNet(3,3)
-        self.unet3 = UNet(3,3)
-
-
+        self.sam3 = SAM(64,3)
+        #  enhance original
+        
+        self.fextact3 = nn.Sequential(conv(3,64,3),CAB(64,3))
+        self.conv1 = conv(64,3,3)
         # self.cat01 = conv(18,18,3)
         # self.cat12 = conv(36,9,3)
         self.cat23 = conv(72,36,3)
@@ -210,9 +208,10 @@ class Trans_high(nn.Module):
         #phase3
         self.trans_mask_block3 = nn.Sequential(*model)
         self.trans_mask_block3[0] = nn.Conv2d(36, 64, 3, padding=1)
-        self.trans_mask_block3[-1] = nn.Conv2d(64, 3,3,padding=1)
+        self.trans_mask_block3[-1] = nn.Conv2d(64, 64,3,padding=1)
 
-        #duplicate feature map
+        #ori enhance model
+        self.orirecom = UNet(64,64)
 
     def forward(self, x, pyr_lap, fake_low,pyr_high):   # concat分量 lp分量list 低频处理分量
         pyr_result = []
@@ -236,14 +235,17 @@ class Trans_high(nn.Module):
         feature4 = self.cat23(torch.cat((feature3,self.fextact2(pyr_lap[-4])),dim=1))
         # result_highfreq4 = self.conv(self.orb(feature4))
         feature4 = self.trans_mask_block3(feature4)
+       
+        # result_highfreq4 = feature4 + pyr_high[-4]
+        feature5,result_highfreq4,lap4 = self.sam3(feature4,pyr_high[-4])
+        orifeature = self.fextact3(pyr_high[-4])
+        fuse = orifeature+feature5
+        fuse2 = self.orirecom(fuse)
+        result_highfreq4 = result_highfreq4 + self.conv1(fuse2)
+        setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
         pyr_lap1.append(lap2)
         pyr_lap1.append(lap3)
-        pyr_lap1.append(feature4)
-        result_highfreq4 = feature4 + pyr_high[-4]
-        # feature4,result_highfreq4 = self.sam(feature4,pyr_high[-4])
-
-        setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
-
+        pyr_lap1.append(lap4)
         for i in reversed(range(self.num_high)):
             result_highfreq = getattr(self, 'result_highfreq_{}'.format(str(i)))
             pyr_result.append(result_highfreq)

@@ -18,15 +18,16 @@ from lib.utils import TVLoss, print_network
 from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
-device_id =[]
-if not os.path.exists('/home/xin/Experience/drive/srmnet4.4'):
-    os.mkdir('/home/xin/Experience/drive/srmnet4.4')
+# device_id =[1,2]
+if not os.path.exists('/home/xin/Experience/drive/srmfnet'):
+    os.mkdir('/home/xin/Experience/drive/srmfnet')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
 import torch.nn.functional as F
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
 # df.to_csv('./result.csv')
+os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
 model = {
     'ConMixer':LapNet(num_high=3)
 }
@@ -87,7 +88,7 @@ def train(loader_train,loader_test,net,optimizer):
         # lap_enhance
         lap0 = pyr_lape[0]  # 128
         lap1 = pyr_lape[1]  # 256
-        # lap2 = pyr_lape[2]  # 512
+        lap2 = pyr_lape[2]  # 512
         # print(lap1.shape)
         """lap loss"""
         laploss0 = L1_criterion(lap0_gt, lap0)
@@ -149,7 +150,7 @@ def train(loader_train,loader_test,net,optimizer):
                     max_ssim = max(max_ssim, ssim_eval)
                     max_psnr = max(max_psnr, psnr_eval)
                 # torch.save(net.state_dict(),opt.model_dir+'/train_model.pth')
-                torch.save(net,f'/home/xin/Experience/drive/srmnet4.4/ll{epoch}.pth')
+                torch.save(net,f'/home/xin/Experience/drive/srmfnet/ll{epoch}.pth')
                 list = [epoch, ssim_eval, psnr_eval ]
                 data = pd.DataFrame([list])
                 data.to_csv('./srm_result.csv',mode='a')
@@ -236,9 +237,9 @@ if __name__ == "__main__":
     loader_train = loaders[opt.trainset]    # its_train
     loader_test = loaders[opt.testset]      # its_test
     net = model[opt.net]
-    # if torch.cuda.device_count() > 0:
-    #     net = torch.nn.DataParallel(net,device_ids=[0,1])
-    net = net.to(opt.device)
+   
+    net = torch.nn.DataParallel(net,device_ids = [0,1])
+    # net = net.to(opt.device)
 
     """
     LOSS
