@@ -178,7 +178,7 @@ class SAM(nn.Module):
 class Trans_high(nn.Module):
     def __init__(self,  num_high=4):
         super(Trans_high, self).__init__()
-        self.fextact0 = nn.Sequential(conv(3,9,3),CAB(9,3))
+        # self.fextact0 = nn.Sequential(conv(9,9,3),CAB(9,3))
         self.fextact1 = nn.Sequential(conv(3,18,3),CAB(18,3))
         self.fextact2=  nn.Sequential(conv(3,36,3),CAB(36,3))
         self.sam1 = SAM(18, 3)
@@ -196,7 +196,7 @@ class Trans_high(nn.Module):
         self.num_high = num_high
         # self.conv = nn.Conv2d(15, 3, kernel_size=1, ).cuda()
         #phase1
-        model = [nn.Conv2d(18, 64, 3, padding=1)]
+        model = [nn.Conv2d(9, 64, 3, padding=1)]
         model += [UNet(64,64)]
         model += [nn.Conv2d(64, 18, 3, padding=1)]
         self.model = nn.Sequential(*model)
@@ -216,8 +216,8 @@ class Trans_high(nn.Module):
     def forward(self, x, pyr_lap, fake_low,pyr_high):   # concat分量 lp分量list 低频处理分量
         pyr_result = []
         pyr_lap1 = []
-        mask = (torch.cat((self.fextact0(pyr_lap[-2]),x),dim=1))
-        mask = self.model(mask)  # 算一个掩码出来
+        # mask = (self.fextact0(x))
+        mask = self.model(x)  # 算一个掩码出来
         # print(mask.shape)
         feature2,result_highfreq2,lap2 = self.sam1(mask,pyr_high[-2])
         setattr(self, 'result_highfreq_{}'.format(str(0)), result_highfreq2) #torch.Size([1, 3, 64, 64])
@@ -241,7 +241,7 @@ class Trans_high(nn.Module):
         orifeature = self.fextact3(pyr_high[-4])
         fuse = orifeature+feature5
         fuse2 = self.orirecom(fuse)
-        result_highfreq4 = result_highfreq4 + self.conv1(fuse2)
+        result_highfreq4 = self.conv1(fuse2)
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
         pyr_lap1.append(lap2)
         pyr_lap1.append(lap3)

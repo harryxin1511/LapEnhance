@@ -4,6 +4,7 @@ import torch
 import sys,os
 sys.path.append('../')
 sys.path.append('/home/xin/Experience/LapDehaze/data/')
+
 from torch import nn, optim
 from torchvision import transforms
 from Moudle.carefe import CARAFE
@@ -27,7 +28,7 @@ import pandas as pd
 import torch.nn.functional as F
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
 # df.to_csv('./result.csv')
-os.environ["CUDA_VISIBLE_DEVICES"] = "0,1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 model = {
     'ConMixer':LapNet(num_high=3)
 }
@@ -238,8 +239,8 @@ if __name__ == "__main__":
     loader_test = loaders[opt.testset]      # its_test
     net = model[opt.net]
    
-    net = torch.nn.DataParallel(net,device_ids = [0,1])
-    # net = net.to(opt.device)
+    # net = torch.nn.DataParallel(net,device_ids = [0,1])
+    net = net.to(opt.device)
 
     """
     LOSS
