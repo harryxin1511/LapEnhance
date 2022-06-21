@@ -15,3 +15,8 @@ Test/lapdecom.py
 
 
 Moudle/__pycache__/unet_model.cpython-37.pyc
+Test/DecomHIGH/
+
+Test/includetoplapfeature/
+Test/lapfeature/
+data/srm_addresult.csv
