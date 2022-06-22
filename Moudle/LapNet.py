@@ -183,32 +183,24 @@ class Trans_high(nn.Module):
         self.fextact2=  nn.Sequential(conv(3,36,3),CAB(36,3))
         self.sam1 = SAM(18, 3)
         self.sam2 = SAM(36, 3)
-        self.sam3 = SAM(64,3)
+        self.sam3 = SAM(72,3)
         #  enhance original
         
         self.fextact3 = nn.Sequential(conv(3,64,3),CAB(64,3))
         self.conv1 = conv(64,3,3)
         # self.cat01 = conv(18,18,3)
         # self.cat12 = conv(36,9,3)
-        self.cat23 = conv(72,36,3)
+        # self.cat23 = conv(72,36,3)
         self.carefe1 = CARAFE(18)
         self.carefe2 = CARAFE(36)
         self.num_high = num_high
         # self.conv = nn.Conv2d(15, 3, kernel_size=1, ).cuda()
         #phase1
-        model = [nn.Conv2d(9, 64, 3, padding=1)]
-        model += [UNet(64,64)]
-        model += [nn.Conv2d(64, 18, 3, padding=1)]
-        self.model = nn.Sequential(*model)
-
+        self.model = UNet(9,18)
         #phase2
-        self.trans_mask_block2 = nn.Sequential(*model)
-        self.trans_mask_block2[0] = nn.Conv2d(36,64,3,padding=1)
-        self.trans_mask_block2[-1] = nn.Conv2d(64,36,3,padding=1)
+        self.trans_mask_block2 = UNet(36,36)
         #phase3
-        self.trans_mask_block3 = nn.Sequential(*model)
-        self.trans_mask_block3[0] = nn.Conv2d(36, 64, 3, padding=1)
-        self.trans_mask_block3[-1] = nn.Conv2d(64, 64,3,padding=1)
+        self.trans_mask_block3 = UNet(72,72)
 
         #ori enhance model
         self.orirecom = UNet(64,64)
@@ -232,16 +224,16 @@ class Trans_high(nn.Module):
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         # feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
         feature3 = self.carefe2(feature3)
-        feature4 = self.cat23(torch.cat((feature3,self.fextact2(pyr_lap[-4])),dim=1))
+        feature4 = (torch.cat((feature3,self.fextact2(pyr_lap[-4])),dim=1))
         # result_highfreq4 = self.conv(self.orb(feature4))
         feature4 = self.trans_mask_block3(feature4)
-       
+    
         # result_highfreq4 = feature4 + pyr_high[-4]
         feature5,result_highfreq4,lap4 = self.sam3(feature4,pyr_high[-4])
-        orifeature = self.fextact3(pyr_high[-4])
-        fuse = orifeature+feature5
-        fuse2 = self.orirecom(fuse)
-        result_highfreq4 = self.conv1(fuse2)
+        # orifeature = self.fextact3(pyr_high[-4])
+        # fuse = orifeature+feature5
+        # fuse2 = self.orirecom(fuse)
+        # result_highfreq4 = self.conv1(fuse2)
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
         pyr_lap1.append(lap2)
         pyr_lap1.append(lap3)
