@@ -20,3 +20,7 @@ Test/DecomHIGH/
 Test/includetoplapfeature/
 Test/lapfeature/
 data/srm_addresult.csv
+Test/
+data/srm_result.csv
+.history/
+.lh/

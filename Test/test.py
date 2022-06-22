@@ -19,7 +19,7 @@ sys.path.append('../')
 abs=os.getcwd()+'/'
 parser=argparse.ArgumentParser()
 parser.add_argument('--task',type=str,default='its',help='its or ots')
-parser.add_argument('--feature',type=int,default=False,help='Test imgs folder')
+parser.add_argument('--feature',type=int,default=True,help='Test imgs folder')
 parser.add_argument('--decomori',type=int,default=False)
 parser.add_argument('--mask',type=int,default=False)
 
@@ -78,16 +78,15 @@ for im in os.listdir(img_dir):
                 t = torch.squeeze(img.clamp(0, 1).cpu())
                 vutils.save_image(t, output_decomori + im.split('.')[0] + f'_Lapde{idx}.png')
         if opt.feature:
-            # for idx, img in enumerate(pred[-1]):
-                img1 = pred[-1]
+            img1 = pred[-1]
+            for idx,img in enumerate(img1):
                 #t = torch.squeeze(img.clamp(0, 1).cpu())
-                img = img1.clamp(0,1).squeeze(0).cpu()
-                for idx in range(36):
-                    vutils.save_image(img[idx,:,:], output_features + im.split('.')[0] + f'_Lapfe{idx}.png')
+                img = img.clamp(0,1).squeeze(0).cpu()
+                vutils.save_image(img, output_features + im.split('.')[0] + f'_Lapfe{idx}.png')
 
-    ts=torch.squeeze(pred[0].clamp(0,1).cpu())
-    # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
-    #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
-    vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
-    # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
+    # ts=torch.squeeze(pred[0].clamp(0,1).cpu())
+    # # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
+    # #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
+    # vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
+    # # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
     

@@ -121,7 +121,7 @@ def train(loader_train,loader_test,net,optimizer):
         # viz.images(lap2,win='pred')
         # viz.images(lap2_gt,win='gt')
 
-        loss = scaleloss +ssim_loss +total_laploss
+        loss = scaleloss +ssim_loss
         # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
