@@ -30,7 +30,7 @@ dataset=opt.task
 img_dir = '/home/xin/Experience/dataset/ADOBE5K/test/low/'
 normal_dir = '/home/xin/Experience/dataset/ADOBE5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/R23.76v4.2/'
+output_dir='../Test/R23.87v4.2/'
 output_decomori = '../Test/DecomLOW/'
 output_mask = '../Test/R23.6V4.2mask/'
 output_features = '../Test/featuremap/'
@@ -44,7 +44,7 @@ if not os.path.exists(output_features):
 
 device='cuda'
 
-net = torch.load('/home/xin/Experience/drive/23.76srmv2/ll120999.pth')
+net = torch.load('/home/xin/Experience/drive/srmfnet/ll137999.pth')
 # net = Lap_Pyramid_Conv()
 net.cuda()
 print(type(net))
@@ -84,9 +84,9 @@ for im in os.listdir(img_dir):
                 img = img.clamp(0,1).squeeze(0).cpu()
                 vutils.save_image(img, output_features + im.split('.')[0] + f'_Lapfe{idx}.png')
 
-    # ts=torch.squeeze(pred[0].clamp(0,1).cpu())
-    # # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
-    # #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
-    # vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
-    # # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
+    ts=torch.squeeze(pred[0].clamp(0,1).cpu())
+    # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
+    #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
+    vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
+    # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
     
