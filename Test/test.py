@@ -12,16 +12,17 @@ from torchvision.utils import make_grid
 import sys
 
 
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 from piq import psnr
 sys.path.append('../')
 sys.path.append('../')
+from Moudle.LapNet import LapNet
 abs=os.getcwd()+'/'
 parser=argparse.ArgumentParser()
 parser.add_argument('--task',type=str,default='its',help='its or ots')
 parser.add_argument('--feature',type=int,default=True,help='Test imgs folder')
 parser.add_argument('--decomori',type=int,default=False)
-parser.add_argument('--mask',type=int,default=False)
+parser.add_argument('--mask',type=int,default=True)
 
 opt=parser.parse_args()
 dataset=opt.task
@@ -30,26 +31,25 @@ dataset=opt.task
 img_dir = '/home/xin/Experience/dataset/ADOBE5K/test/low/'
 normal_dir = '/home/xin/Experience/dataset/ADOBE5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/R23.87v4.2/'
+output_dir='../Test/R23.90v4.3/'
 output_decomori = '../Test/DecomLOW/'
-output_mask = '../Test/R23.6V4.2mask/'
-output_features = '../Test/featuremap/'
+output_mask = '../Test/illumap/'
+output_features = '../Test/23.90featuremap/'
 print("pred_dir:",output_dir)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
-if not os.path.exists(output_decomori):
-    os.mkdir(output_decomori)
+if not os.path.exists(output_mask):
+    os.mkdir(output_mask)
 if not os.path.exists(output_features):
     os.mkdir(output_features)
 
 device='cuda'
-
-net = torch.load('/home/xin/Experience/drive/srmfnet/ll137999.pth')
+net = LapNet().cuda()
+# net = nn.DataParallel(net)
+net.load_state_dict(torch.load('/home/xin/Experience/drive/srmfnet/ll185999.pth'))
 # net = Lap_Pyramid_Conv()
-net.cuda()
-print(type(net))
-
 net.eval()
+
 for im in os.listdir(img_dir):
     print(f'\r {im}',end='',flush=True)
 
@@ -70,7 +70,7 @@ for im in os.listdir(img_dir):
         # pred= net.pyramid_decom(haze1) 
         pred= net(haze1)
         if opt.mask:
-            for idx, img in enumerate(pred[1]):
+            for idx, img in enumerate(pred[-2]):
                 t = torch.squeeze(img.clamp(0, 1).cpu())
                 vutils.save_image(t, output_mask + im.split('.')[0] + f'_Lapmask{idx}.png')
         if opt.decomori:

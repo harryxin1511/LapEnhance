@@ -131,65 +131,50 @@ class SAM(nn.Module):
         self.conv1 = conv(n_feat, n_feat, kernel_size, bias=bias)
         self.conv2 = conv(n_feat, 3, kernel_size, bias=bias)
         self.conv3 = conv(3, n_feat, kernel_size, bias=bias)
-
+        
+        self.iluec = conv(n_feat,3, kernel_size)
+        self.iludc = conv(3,n_feat, kernel_size)
+        
+        self.recomnet = ORB(n_feat, kernel_size)
     def forward(self, x, x_img):        #x :feature x_img:original img
+        ilumap = self.iluec(x)
+        ilufeat = self.iludc(ilumap)
         x1 = self.conv1(x)
         lap_map = self.conv2(x)
-        img =  lap_map + x_img
+        img =  self.recomnet(lap_map + x_img)
 
         x2 = torch.sigmoid(self.conv3(img))
         x1 = x1*x2
-        x1 = x1+x
-        return x1, img,lap_map
+        x1 = x1+ilufeat
+        return x1, img,ilumap,lap_map
+    
+### RecomMoudle
+class RecomMoudle(nn.Module):
+    def __init__(self,n_feat, kernel_size,bias=False):
+        super(RecomMoudle, self).__init__()
+        self.unet = UNet(n_feat,3)
+        self.iluec = conv(n_feat,3, kernel_size)   
+        self.recomnet = ORB(36, kernel_size)
+    def forward(self,x, x_img):
+        ilumap = self.iluec(x)
+        lap_map = self.unet(x)
+        img = self.recomnet(lap_map)+x_img
+        return img,ilumap,lap_map
 ## Original Resolution Block (ORB)
-# class ORB(nn.Module):
-#     def __init__(self, n_feat, kernel_size, reduction=4,num_cab=8):
-#         super(ORB, self).__init__()
-#         modules_body = []
-#         modules_body = [CAB(n_feat, kernel_size, reduction) for _ in range(num_cab)]
-#         modules_body.append(nn.PReLU())
-#         modules_body.append(conv(n_feat, n_feat, kernel_size))
-#         self.body = nn.Sequential(*modules_body)
+class ORB(nn.Module):
+    def __init__(self, n_feat, kernel_size=3, reduction=4,num_cab=4):
+        super(ORB, self).__init__()
+        modules_body = []
+        modules_body += [conv(3,n_feat, kernel_size)]
+        modules_body += [CAB(n_feat, kernel_size, reduction) for _ in range(num_cab)]
+        modules_body.append(nn.PReLU())
+        modules_body.append(conv(n_feat, 3, kernel_size))
+        self.body = nn.Sequential(*modules_body)
 
-#     def forward(self, x):
-#         res = self.body(x)
-#         res += x
-#         return res
-
-# ##########################################################################
-# class ORSNet(nn.Module):
-    def __init__(self, n_feat, scale_orsnetfeats, kernel_size=3,  scale_unetfeats, num_cab=8):
-        super(ORSNet, self).__init__()
-
-        self.orb1 = ORB(n_feat+scale_orsnetfeats, kernel_size, reduction, act, bias, num_cab)
-        self.orb2 = ORB(n_feat+scale_orsnetfeats, kernel_size, reduction, act, bias, num_cab)
-        self.orb3 = ORB(n_feat+scale_orsnetfeats, kernel_size, reduction, act, bias, num_cab)
-
-        self.up_enc1 = UpSample(n_feat, scale_unetfeats)
-        self.up_dec1 = UpSample(n_feat, scale_unetfeats)
-
-        self.up_enc2 = nn.Sequential(UpSample(n_feat+scale_unetfeats, scale_unetfeats), UpSample(n_feat, scale_unetfeats))
-        self.up_dec2 = nn.Sequential(UpSample(n_feat+scale_unetfeats, scale_unetfeats), UpSample(n_feat, scale_unetfeats))
-
-        self.conv_enc1 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
-        self.conv_enc2 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
-        self.conv_enc3 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
-
-        self.conv_dec1 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
-        self.conv_dec2 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
-        self.conv_dec3 = nn.Conv2d(n_feat, n_feat+scale_orsnetfeats, kernel_size=1, bias=bias)
-
-    def forward(self, x,lap_map):
-        x = self.orb1(x)
-        x = x + self.conv_enc1(encoder_outs[0]) + self.conv_dec1(decoder_outs[0])
-
-        x = self.orb2(x)
-        x = x + self.conv_enc2(self.up_enc1(encoder_outs[1])) + self.conv_dec2(self.up_dec1(decoder_outs[1]))
-
-        x = self.orb3(x)
-        x = x + self.conv_enc3(self.up_enc2(encoder_outs[2])) + self.conv_dec3(self.up_dec2(decoder_outs[2]))
-
-        return x
+    def forward(self, x):
+        res = self.body(x)
+        res += x
+        return res
 
 class Trans_high(nn.Module):
     def __init__(self,  num_high=4):
@@ -211,16 +196,17 @@ class Trans_high(nn.Module):
         #phase2
         self.trans_mask_block2 = UNet(36,36)
         #phase3
-        self.trans_mask_block3 = UNet(72,72)
+        # self.trans_mask_block3 = UNet(72,3)
         #ori enhance model
-        self.orirecom = UNet(64,64)
+        self.orirecom = RecomMoudle(72,3)
     def forward(self, x, pyr_lap, fake_low,pyr_high):   # concat分量 lp分量list 低频处理分量
         pyr_result = []
         pyr_lap1 = []
+        pyr_ilu = []
         # mask = (self.fextact0(x))
         mask = self.model(x)  # 算一个掩码出来
         # print(mask.shape)
-        feature2,result_highfreq2,lap2 = self.sam1(mask,pyr_high[-2])
+        feature2,result_highfreq2,ilumap2,lap2 = self.sam1(mask,pyr_high[-2])
         setattr(self, 'result_highfreq_{}'.format(str(0)), result_highfreq2) #torch.Size([1, 3, 64, 64])
         # print(self.result_highfreq_0.shape)
         # feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
@@ -228,31 +214,35 @@ class Trans_high(nn.Module):
         feature3 = torch.cat((feature2,self.fextact1(pyr_lap[-3])),dim=1)
         feature3 = self.trans_mask_block2(feature3)
         temp0 = feature3
-        feature3,result_highfreq3,lap3 = self.sam2(feature3,pyr_high[-3])
+        feature3,result_highfreq3,ilumap3,lap3 = self.sam2(feature3,pyr_high[-3])
         temp = feature3
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         # feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
         feature3 = self.carefe2(feature3)
         feature4 = (torch.cat((feature3,self.fextact2(pyr_lap[-4])),dim=1))
         # result_highfreq4 = self.conv(self.orb(feature4))
-        feature4 = self.trans_mask_block3(feature4)
+        # feature4 = self.trans_mask_block3(feature4)
         # result_highfreq4 = feature4 + pyr_high[-4]
-        feature5,result_highfreq4,lap4 = self.sam3(feature4,pyr_high[-4])
+        # feature5,result_highfreq4,lap4 = self.sam3(feature4,pyr_high[-4])
         # orifeature = self.fextact3(pyr_high[-4])
         # fuse = orifeature+feature5
         # fuse2 = self.orirecom(fuse)
-        # result_highfreq4 = self.conv1(fuse2)
+        result_highfreq4,ilumap4,lap4 = self.orirecom(feature4,pyr_high[-4])
         setattr(self, 'result_highfreq_{}'.format(str(2)), result_highfreq4)  # torch.Size([1, 3, 256, 256])
         pyr_lap1.append(lap2)
         pyr_lap1.append(lap3)
         pyr_lap1.append(lap4)
+        pyr_ilu.append(ilumap2)
+        pyr_ilu.append(ilumap3)
+        pyr_ilu.append(ilumap4)
+
         for i in reversed(range(self.num_high)):
             result_highfreq = getattr(self, 'result_highfreq_{}'.format(str(i)))
             pyr_result.append(result_highfreq)
 
         pyr_result.append(fake_low)  # 低频分量追加到后面即可
         #print((pyr_result[0].shape))
-        return pyr_result,pyr_lap1,   temp,temp0
+        return pyr_result,pyr_lap1,pyr_ilu,temp,temp0
 
 def default_conv(in_channels, out_channels, kernel_size, bias=True):
     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
@@ -267,13 +257,11 @@ class LapNet(nn.Module):
         self.carefe0 = CARAFE(3)
         self.sig = nn.Sigmoid()
         self.relu = nn.ReLU()
-        # self.orb = ORB(64, 3).cuda()
-        self.conv1 = nn.Conv2d(3,64,kernel_size=3,stride=1,padding=1)
-        self.conv2 = nn.Conv2d(64,3,kernel_size=3,stride=1,padding=1)
+        # self.orb = ORSNet(36)
+       
     def forward(self, real_A_full):
-
         pyr_A,pyr_O = self.lap_pyramid.pyramid_decom(img=real_A_full) #pyr_a is lap,pyr_0 is ori
-        # print((pyr_O[-1].shape))
+        # print((pyr_O[0].shape))
         # print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
         fake_B_low = self.unet(pyr_A[-1])   #last nomal map
         # fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
@@ -283,15 +271,15 @@ class LapNet(nn.Module):
         fake_B_up = self.carefe0(fake_B_low)
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
-        pyr_A_trans,pyr_lap1,temp,temp0= self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
+        pyr_A_trans,pyr_lap1,ilumap,temp,temp0= self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
         # print(temp0.shape)
         pyr_result = self.lap_pyramid.pyramid_recons(pyr_A_trans)
         # pyr_result = [self.sig(item) for item in pyr_result]
         pyr_result.insert(0,self.sig(fake_B_low))  #[64,128,256,512]
-        
+        # output = self.orb(pyr_O[0],pyr_result)
         fake_B_full = pyr_result[-1]
         # print(fake_B_full.shape)
-        return fake_B_full,pyr_result,pyr_A,pyr_lap1
+        return fake_B_full,pyr_result,ilumap,pyr_lap1
 
 
 
@@ -299,7 +287,7 @@ if __name__ == "__main__":
     device = 'cuda'
     X = torch.Tensor(1,3,512,512).cuda()
     net = LapNet(num_high=3).cuda()
-    #net = ORB(20,3).cuda()
+    net = nn.DataParallel(net)
     y = net(X)
     lap_list = y[-1]
     for img in lap_list:

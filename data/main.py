@@ -64,22 +64,25 @@ def train(loader_train,loader_test,net,optimizer):
         net = net.to(opt.device)
         # net = torch.nn.DataParallel(net,de)
         start=time.time()
-        out,pyr_list,pyr_lap,pyr_lape = net(x)
+        out,pyr_list,ilumap,pyr_lape = net(x)
         end = time.time()
         #extact each pyr img
         Scale0 = pyr_list[3] #512
         Scale1 = pyr_list[2] #256
         Scale2 = pyr_list[1] #128
         Scale3 = pyr_list[0] #64
-        #gt_down
+        #gt scale
         orilist = decomori.pyramid_decom(y)[1]
+        gt_down0 = orilist[0]  #512
         gt_down1 = orilist[1]  # 256
         gt_down2 = orilist[2] # 128
         gt_down3 = orilist[3]  # 64
-
-        reup1 = F.interpolate(gt_down3, scale_factor=2, mode='bilinear')  # 128
-        reup2 = F.interpolate(gt_down2, scale_factor=2, mode='bilinear')  # 256
-        reup3 = F.interpolate(gt_down1, scale_factor=2, mode='bilinear')  # 512
+        #low scale
+        lowlist = decomori.pyramid_decom(x)[1]
+        low_down0 = lowlist[0]
+        low_down1 = lowlist[1]
+        low_down2 = lowlist[2]
+        low_down3 = lowlist[3]
         #lap_gt
         lapgtlist = decomori.pyramid_decom(y)[0]
         lap0_gt = lapgtlist[-2]  # 128
@@ -91,18 +94,23 @@ def train(loader_train,loader_test,net,optimizer):
         lap1 = pyr_lape[1]  # 256
         lap2 = pyr_lape[2]  # 512
         # print(lap1.shape)
+        """ilu loss"""
+        iluloss0 = L1_criterion((gt_down0 - low_down0),ilumap[2])  #512
+        iluloss1 = L1_criterion((gt_down1 - low_down1),ilumap[1])  #256
+        iluloss2 = L1_criterion((gt_down2 - low_down2),ilumap[0])  #128
+        iluloss = iluloss0 + iluloss1 + iluloss2
         """lap loss"""
         laploss0 = L1_criterion(lap0_gt, lap0)
         laploss1 = L1_criterion(lap1_gt, lap1)
         laploss2 = L1_criterion(lap2_gt, lap2)
-        total_laploss = laploss0 + laploss1
+        total_laploss = laploss0 + laploss1 + laploss2
         #loss = criterion[0](out,y)
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
         scale1l1 = L1_closs(Scale1,gt_down1) #256
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
-        scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
+        scaleloss = scale0l1 + scale1l1 + scale2l1 + scale3l1
         """color_loss """
         blur_rgb = Blur(3).cuda()
         inputc = blur_rgb(Scale0)
@@ -113,26 +121,15 @@ def train(loader_train,loader_test,net,optimizer):
         ssim_loss2 = 1 - ssim(Scale1, gt_down1)
         ssim_loss3 = 1 - ssim(Scale2, gt_down2)  # 128
         ssim_loss4 = 1 - ssim(Scale3, gt_down3)  # 64
-        ssim_loss = ssim_loss1 + ssim_loss2 +  2*ssim_loss3 + 2*ssim_loss4
+        ssim_loss = ssim_loss1 + ssim_loss2 +  ssim_loss3 + ssim_loss4
         # ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
         tv_loss = TV_loss(out)
         """vgg loss"""
         # viz.images(lap2,win='pred')
         # viz.images(lap2_gt,win='gt')
-
-        loss = scaleloss +ssim_loss + total_laploss
+        loss = scaleloss +ssim_loss +  iluloss
         # loss = scaleloss
-        #ssim_loss + 0.01 * tv_loss
-        # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
-        # AvgScale1Loss = AvgScale1Loss + torch.Tensor.item(scale1l1.data)
-        # AvgScale2Loss = AvgScale2Loss + torch.Tensor.item(scale2l1.data)
-        # AvgScale3Loss = AvgScale3Loss + torch.Tensor.item(scale3l1.data)
-        # AvgColor0Loss = AvgColor0Loss + torch.Tensor.item(scale0color.data)
-        # AvgColor1Loss = AvgColor1Loss + torch.Tensor.item(scale1color.data)
-        # AvgColor2Loss = AvgColor2Loss + torch.Tensor.item(scale2color.data)
-        # AvgColor3Loss = AvgColor3Loss + torch.Tensor.item(scale3color.data)
-        # count += 1
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
@@ -140,7 +137,7 @@ def train(loader_train,loader_test,net,optimizer):
         print( f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 1000 == 0:
+        if (epoch+1) % 2000 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test,epoch)
@@ -151,10 +148,10 @@ def train(loader_train,loader_test,net,optimizer):
                     max_ssim = max(max_ssim, ssim_eval)
                     max_psnr = max(max_psnr, psnr_eval)
                 # torch.save(net.state_dict(),opt.model_dir+'/train_model.pth')
-                torch.save(net,f'/home/xin/Experience/drive/srmfnet/ll{epoch}.pth')
+                torch.save(net.state_dict(),f'/home/xin/Experience/drive/srmfnet/ll{epoch}.pth')
                 list = [epoch, ssim_eval, psnr_eval ]
                 data = pd.DataFrame([list])
-                data.to_csv('./srm_result.csv',mode='a')
+                data.to_csv('./result6000.csv',mode='a')
                 # print(opt.model_dir+'/train_model.pth')
                 print(f'\n model saved at step :{epoch}| max_psnr:{max_psnr:.4f}|max_ssim:{max_ssim:.4f}')
 
@@ -239,7 +236,7 @@ if __name__ == "__main__":
     loader_test = loaders[opt.testset]      # its_test
     net = model[opt.net]
    
-    # net = torch.nn.DataParallel(net,device_ids = [0,1])
+    # net = torch.nn.DataParallel(net)
     net = net.to(opt.device)
 
     """
