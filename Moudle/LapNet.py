@@ -257,7 +257,6 @@ class LapNet(nn.Module):
         self.carefe0 = CARAFE(3)
         self.sig = nn.Sigmoid()
         self.relu = nn.ReLU()
-        # self.orb = ORSNet(36)
        
     def forward(self, real_A_full):
         pyr_A,pyr_O = self.lap_pyramid.pyramid_decom(img=real_A_full) #pyr_a is lap,pyr_0 is ori

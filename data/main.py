@@ -110,7 +110,7 @@ def train(loader_train,loader_test,net,optimizer):
         scale1l1 = L1_closs(Scale1,gt_down1) #256
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
-        scaleloss = scale0l1 + scale1l1 + scale2l1 + scale3l1
+        scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
         """color_loss """
         blur_rgb = Blur(3).cuda()
         inputc = blur_rgb(Scale0)
@@ -121,7 +121,7 @@ def train(loader_train,loader_test,net,optimizer):
         ssim_loss2 = 1 - ssim(Scale1, gt_down1)
         ssim_loss3 = 1 - ssim(Scale2, gt_down2)  # 128
         ssim_loss4 = 1 - ssim(Scale3, gt_down3)  # 64
-        ssim_loss = ssim_loss1 + ssim_loss2 +  ssim_loss3 + ssim_loss4
+        ssim_loss = ssim_loss1 + ssim_loss2 +  2*ssim_loss3 + 2*ssim_loss4
         # ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
         tv_loss = TV_loss(out)
@@ -130,6 +130,16 @@ def train(loader_train,loader_test,net,optimizer):
         # viz.images(lap2_gt,win='gt')
         loss = scaleloss +ssim_loss +  iluloss
         # loss = scaleloss
+        #ssim_loss + 0.01 * tv_loss
+        # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
+        # AvgScale1Loss = AvgScale1Loss + torch.Tensor.item(scale1l1.data)
+        # AvgScale2Loss = AvgScale2Loss + torch.Tensor.item(scale2l1.data)
+        # AvgScale3Loss = AvgScale3Loss + torch.Tensor.item(scale3l1.data)
+        # AvgColor0Loss = AvgColor0Loss + torch.Tensor.item(scale0color.data)
+        # AvgColor1Loss = AvgColor1Loss + torch.Tensor.item(scale1color.data)
+        # AvgColor2Loss = AvgColor2Loss + torch.Tensor.item(scale2color.data)
+        # AvgColor3Loss = AvgColor3Loss + torch.Tensor.item(scale3color.data)
+        # count += 1
         loss.backward()
         optimizer.step()
         optimizer.zero_grad()
