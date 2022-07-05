@@ -31,10 +31,10 @@ dataset=opt.task
 img_dir = '/home/xin/Experience/dataset/ADOBE5K/test/low/'
 normal_dir = '/home/xin/Experience/dataset/ADOBE5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/R23.90v4.3/'
+output_dir='../Test/R23.97v4.3/'
 output_decomori = '../Test/DecomLOW/'
 output_mask = '../Test/illumap/'
-output_features = '../Test/23.90featuremap/'
+output_features = '../Test/23.97featuremap/'
 print("pred_dir:",output_dir)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -46,7 +46,7 @@ if not os.path.exists(output_features):
 device='cuda'
 net = LapNet().cuda()
 # net = nn.DataParallel(net)
-net.load_state_dict(torch.load('/home/xin/Experience/drive/srmfnet/ll185999.pth'))
+net.load_state_dict(torch.load('/home/xin/Experience/drive/23.97srm_v3/ll169999.pth'))
 # net = Lap_Pyramid_Conv()
 net.eval()
 

@@ -103,7 +103,7 @@ def train(loader_train,loader_test,net,optimizer):
         laploss0 = L1_criterion(lap0_gt, lap0)
         laploss1 = L1_criterion(lap1_gt, lap1)
         laploss2 = L1_criterion(lap2_gt, lap2)
-        total_laploss = laploss0 + laploss1 + laploss2
+        total_laploss = laploss0 + laploss1 
         #loss = criterion[0](out,y)
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
@@ -128,7 +128,7 @@ def train(loader_train,loader_test,net,optimizer):
         """vgg loss"""
         # viz.images(lap2,win='pred')
         # viz.images(lap2_gt,win='gt')
-        loss = scaleloss +ssim_loss +  iluloss
+        loss = scaleloss +ssim_loss +  iluloss + total_laploss
         # loss = scaleloss
         #ssim_loss + 0.01 * tv_loss
         # AvgScale0Loss = AvgScale0Loss + torch.Tensor.item(scale0l1.data)
