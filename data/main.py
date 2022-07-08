@@ -28,7 +28,7 @@ import pandas as pd
 import torch.nn.functional as F
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
 # df.to_csv('./result.csv')
-os.environ["CUDA_VISIBLE_DEVICES"] = "1"
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
 model = {
     'ConMixer':LapNet(num_high=3)
 }
@@ -111,18 +111,12 @@ def train(loader_train,loader_test,net,optimizer):
         scale2l1 = L1_closs(Scale2,gt_down2) #128
         scale3l1 = L1_closs(Scale3,gt_down3) #64
         scaleloss = scale0l1 + scale1l1 + 2*scale2l1 + 2*scale3l1
-        """color_loss """
-        blur_rgb = Blur(3).cuda()
-        inputc = blur_rgb(Scale0)
-        labelc = blur_rgb(y)
-        color_loss1 = color_loss(inputc,labelc)
         """ssim loss"""
         ssim_loss1 = 1 - ssim(out, y)
         ssim_loss2 = 1 - ssim(Scale1, gt_down1)
         ssim_loss3 = 1 - ssim(Scale2, gt_down2)  # 128
         ssim_loss4 = 1 - ssim(Scale3, gt_down3)  # 64
         ssim_loss = ssim_loss1 + ssim_loss2 +  2*ssim_loss3 + 2*ssim_loss4
-        # ssim_loss = 1 - ssim(out, y)
         """tv_loss"""
         tv_loss = TV_loss(out)
         """vgg loss"""
@@ -147,7 +141,7 @@ def train(loader_train,loader_test,net,optimizer):
         print( f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 2000 == 0:
+        if (epoch+1) % 10000 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test,epoch)
@@ -254,7 +248,7 @@ if __name__ == "__main__":
     """
     L1_criterion = nn.L1Loss()
     L1_closs = L1_Charbonnier_loss()
-    # L1_closs = torch.nn.L1Loss()
+    # L1_closs = torch.nn.MSELoss()
     TV_loss = TVLoss()
     mse_loss = torch.nn.MSELoss()
     vgg_loss = PerceptualLoss()
