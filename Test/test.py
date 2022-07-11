@@ -20,9 +20,9 @@ from Moudle.LapNet import LapNet
 abs=os.getcwd()+'/'
 parser=argparse.ArgumentParser()
 parser.add_argument('--task',type=str,default='its',help='its or ots')
-parser.add_argument('--feature',type=int,default=True,help='Test imgs folder')
+parser.add_argument('--feature',type=int,default=False,help='Test imgs folder')
 parser.add_argument('--decomori',type=int,default=False)
-parser.add_argument('--mask',type=int,default=True)
+parser.add_argument('--mask',type=int,default=False)
 
 opt=parser.parse_args()
 dataset=opt.task
@@ -31,10 +31,10 @@ dataset=opt.task
 img_dir = '/home/xin/Experience/dataset/ADOBE5K/test/low/'
 normal_dir = '/home/xin/Experience/dataset/ADOBE5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/R23.97v4.3/'
+output_dir='../Test/C23.9978v4.3/'
 output_decomori = '../Test/DecomLOW/'
 output_mask = '../Test/illumap/'
-output_features = '../Test/23.97featuremap/'
+output_features = '../Test/23.9978eaturemap/'
 print("pred_dir:",output_dir)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -46,25 +46,27 @@ if not os.path.exists(output_features):
 device='cuda'
 net = LapNet().cuda()
 # net = nn.DataParallel(net)
-net.load_state_dict(torch.load('/home/xin/Experience/drive/23.97srm_v3/ll169999.pth'))
+net.load_state_dict(torch.load('/home/xin/Experience/drive/23.9978srm_v3/ll189999.pth'))
 # net = Lap_Pyramid_Conv()
 net.eval()
 
-for im in os.listdir(img_dir):
+for im,om in zip(os.listdir(img_dir),os.listdir(normal_dir)):
     print(f'\r {im}',end='',flush=True)
 
     total = []
     haze = Image.open(img_dir+im)
-    # haze_no = Image.open(normal_dir+om)
+    haze_no = Image.open(normal_dir+om)
     haze1= tfs.Compose([
         tfs.ToTensor(),
         #tfs.Normalize(mean=[0.64, 0.6, 0.58],std=[0.14,0.15, 0.152])
     ])(haze)[None,::]
-    # haze_no=tfs.ToTensor()(haze)[None,::]  # ?
+    haze_no1=tfs.Compose([
+        tfs.ToTensor()
+        ])(haze_no)[None,::]  # ?
 
     with torch.no_grad():
         haze1 = haze1.cuda()
-        # haze_no=haze_no.cuda()
+        haze_no1=haze_no1.cuda()
         # resize=torchvision.transforms.Resize(512)
         # haze1=resize(haze1)
         # pred= net.pyramid_decom(haze1) 
@@ -83,8 +85,10 @@ for im in os.listdir(img_dir):
                 #t = torch.squeeze(img.clamp(0, 1).cpu())
                 img = img.clamp(0,1).squeeze(0).cpu()
                 vutils.save_image(img, output_features + im.split('.')[0] + f'_Lapfe{idx}.png')
+    compare_img = torch.cat([haze1,pred[0],haze_no1],dim=3)
+    ts=torch.squeeze(compare_img.clamp(0,1).cpu())
 
-    ts=torch.squeeze(pred[0].clamp(0,1).cpu())
+    # ts=torch.squeeze(pred[0].clamp(0,1).cpu())
     # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
     #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
     vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')

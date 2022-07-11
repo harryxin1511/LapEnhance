@@ -135,13 +135,13 @@ class SAM(nn.Module):
         self.iluec = conv(n_feat,3, kernel_size)
         self.iludc = conv(3,n_feat, kernel_size)
         
-        self.recomnet = ORB(n_feat, kernel_size)
+        self.recomnet = ORB(n_feat,in_features=6 ,kernel_size=kernel_size)
     def forward(self, x, x_img):        #x :feature x_img:original img
         ilumap = self.iluec(x)
         ilufeat = self.iludc(ilumap)
         x1 = self.conv1(x)
         lap_map = self.conv2(x)
-        img =  self.recomnet(lap_map + x_img)
+        img =  self.recomnet(torch.cat((lap_map,x_img),dim=1))
 
         x2 = torch.sigmoid(self.conv3(img))
         x1 = x1*x2
@@ -154,18 +154,18 @@ class RecomMoudle(nn.Module):
         super(RecomMoudle, self).__init__()
         self.unet = UNet(n_feat,3)
         self.iluec = conv(n_feat,3, kernel_size)   
-        self.recomnet = ORB(36, kernel_size)
+        self.recomnet = ORB(72,in_features=6, kernel_size=kernel_size)
     def forward(self,x, x_img):
         ilumap = self.iluec(x)
         lap_map = self.unet(x)
-        img = self.recomnet(lap_map)+x_img
+        img = self.recomnet(torch.cat((lap_map,x_img),dim=1))
         return img,ilumap,lap_map
 ## Original Resolution Block (ORB)
 class ORB(nn.Module):
-    def __init__(self, n_feat, kernel_size=3, reduction=4,num_cab=4):
+    def __init__(self, n_feat, in_features=3,kernel_size=3, reduction=4,num_cab=8):
         super(ORB, self).__init__()
         modules_body = []
-        modules_body += [conv(3,n_feat, kernel_size)]
+        modules_body += [conv(in_features,n_feat, kernel_size)]
         modules_body += [CAB(n_feat, kernel_size, reduction) for _ in range(num_cab)]
         modules_body.append(nn.PReLU())
         modules_body.append(conv(n_feat, 3, kernel_size))
@@ -173,7 +173,7 @@ class ORB(nn.Module):
 
     def forward(self, x):
         res = self.body(x)
-        res += x
+        # res += x
         return res
 
 class Trans_high(nn.Module):
