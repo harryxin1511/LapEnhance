@@ -20,9 +20,9 @@ from Moudle.LapNet import LapNet
 abs=os.getcwd()+'/'
 parser=argparse.ArgumentParser()
 parser.add_argument('--task',type=str,default='its',help='its or ots')
-parser.add_argument('--feature',type=int,default=False,help='Test imgs folder')
+parser.add_argument('--feature',type=int,default=True,help='Test imgs folder')
 parser.add_argument('--decomori',type=int,default=False)
-parser.add_argument('--mask',type=int,default=False)
+parser.add_argument('--mask',type=int,default=True)
 
 opt=parser.parse_args()
 dataset=opt.task
@@ -31,10 +31,10 @@ dataset=opt.task
 img_dir = '/home/xin/Experience/dataset/ADOBE5K/test/low/'
 normal_dir = '/home/xin/Experience/dataset/ADOBE5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/C23.9978v4.3/'
+output_dir='../Test/C24.1669v4.3/'
 output_decomori = '../Test/DecomLOW/'
 output_mask = '../Test/illumap/'
-output_features = '../Test/23.9978eaturemap/'
+output_features = '../Test/24.1669eaturemap/'
 print("pred_dir:",output_dir)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
@@ -46,7 +46,7 @@ if not os.path.exists(output_features):
 device='cuda'
 net = LapNet().cuda()
 # net = nn.DataParallel(net)
-net.load_state_dict(torch.load('/home/xin/Experience/drive/23.9978srm_v3/ll189999.pth'))
+net.load_state_dict(torch.load('/home/xin/Experience/drive/24.1669srm_v3/ll159999.pth'))
 # net = Lap_Pyramid_Conv()
 net.eval()
 
