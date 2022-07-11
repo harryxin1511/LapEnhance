@@ -3,76 +3,94 @@ import numpy as np
 import torchvision
 from PIL import Image
 import torch
+import math
 import torch.nn as nn
-import torchvision.transforms as tfs 
+import torchvision.transforms as tfs
 import torchvision.utils as vutils
 import matplotlib.pyplot as plt
 from torchvision.utils import make_grid
 import sys
+
+
+os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+from piq import psnr
 sys.path.append('../')
 sys.path.append('../')
+from Moudle.LapNet import LapNet
 abs=os.getcwd()+'/'
-
-os.environ['CUDA_VISIBLE_DEVICES'] = "1"
-
-
-#         for tensor,tit,i in zip(tensors,titles,range(len(tensors))):
-#             img = make_grid(tensor)
-#             npimg = img.numpy()
-#             ax = fig.add_subplot(221+i)
-#             ax.imshow(np.transpose(npimg, (1, 2, 0)))
-#             ax.set_title(tit)
-#         plt.show()
-
 parser=argparse.ArgumentParser()
 parser.add_argument('--task',type=str,default='its',help='its or ots')
-parser.add_argument('--test_imgs',type=str,default='test_imgs',help='Test imgs folder')
-parser.add_argument('--decom',type=int,default=False)
-parser.add_argument('--mask',type=int,default=False)
+parser.add_argument('--feature',type=int,default=True,help='Test imgs folder')
+parser.add_argument('--decomori',type=int,default=False)
+parser.add_argument('--mask',type=int,default=True)
 
 opt=parser.parse_args()
 dataset=opt.task
-
-img_dir='/home/xin/Experience/dataset/Adobe5K/test/low/'
+# img_dir='/home/xin/Experience/dataset/单张/DICM/'
+# dicm01 = '/home/xin/Experience/dataset/单张/DICM/01.jpg'
+img_dir = '/home/xin/Experience/dataset/ADOBE5K/test/low/'
+normal_dir = '/home/xin/Experience/dataset/ADOBE5K/test/high/'
 # img_decom_dir='/home/xin/Experience/LapEnhace/Test/test_imgs/'
-output_dir='../Test/pred_Lap/'
-output_decom = '../Test/Decom/'
-output_mask = '../Test/mask/'
+output_dir='../Test/C24.1669v4.3/'
+output_decomori = '../Test/DecomLOW/'
+output_mask = '../Test/illumap/'
+output_features = '../Test/24.1669eaturemap/'
 print("pred_dir:",output_dir)
 if not os.path.exists(output_dir):
     os.mkdir(output_dir)
+if not os.path.exists(output_mask):
+    os.mkdir(output_mask)
+if not os.path.exists(output_features):
+    os.mkdir(output_features)
 
-device='cuda' if torch.cuda.is_available() else 'cpu'
-
-net = torch.load('../trained_moudles/ll1999.pth')
-print(type(net))
-
+device='cuda'
+net = LapNet().cuda()
+# net = nn.DataParallel(net)
+net.load_state_dict(torch.load('/home/xin/Experience/drive/24.1669srm_v3/ll159999.pth'))
+# net = Lap_Pyramid_Conv()
 net.eval()
-for im in os.listdir(img_dir):
+
+for im,om in zip(os.listdir(img_dir),os.listdir(normal_dir)):
     print(f'\r {im}',end='',flush=True)
+
+    total = []
     haze = Image.open(img_dir+im)
+    haze_no = Image.open(normal_dir+om)
     haze1= tfs.Compose([
         tfs.ToTensor(),
         #tfs.Normalize(mean=[0.64, 0.6, 0.58],std=[0.14,0.15, 0.152])
     ])(haze)[None,::]
-    haze_no=tfs.ToTensor()(haze)[None,::]  # ?
+    haze_no1=tfs.Compose([
+        tfs.ToTensor()
+        ])(haze_no)[None,::]  # ?
+
     with torch.no_grad():
         haze1 = haze1.cuda()
-        resize=torchvision.transforms.Resize(512)
-        haze1=resize(haze1)
+        haze_no1=haze_no1.cuda()
+        # resize=torchvision.transforms.Resize(512)
+        # haze1=resize(haze1)
+        # pred= net.pyramid_decom(haze1) 
         pred= net(haze1)
-        # print(mask)
-        if opt.decom:
-            for idx,img in enumerate(temp):
-                t = torch.squeeze(img.clamp(0, 1).cpu())
-            # tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
-                vutils.save_image(t, output_decom + im.split('.')[0] + f'_Lapdecom{idx}.png')
         if opt.mask:
-            for idx, img in enumerate(mask):
+            for idx, img in enumerate(pred[-2]):
                 t = torch.squeeze(img.clamp(0, 1).cpu())
-                # tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
                 vutils.save_image(t, output_mask + im.split('.')[0] + f'_Lapmask{idx}.png')
-    ts=torch.squeeze(pred.clamp(0,1).cpu())
+        if opt.decomori:
+            for idx, img in enumerate(pred[0]):
+                t = torch.squeeze(img.clamp(0, 1).cpu())
+                vutils.save_image(t, output_decomori + im.split('.')[0] + f'_Lapde{idx}.png')
+        if opt.feature:
+            img1 = pred[-1]
+            for idx,img in enumerate(img1):
+                #t = torch.squeeze(img.clamp(0, 1).cpu())
+                img = img.clamp(0,1).squeeze(0).cpu()
+                vutils.save_image(img, output_features + im.split('.')[0] + f'_Lapfe{idx}.png')
+    compare_img = torch.cat([haze1,pred[0],haze_no1],dim=3)
+    ts=torch.squeeze(compare_img.clamp(0,1).cpu())
+
+    # ts=torch.squeeze(pred[0].clamp(0,1).cpu())
+    # lapdawn=torch.squeeze(pred[-1].clamp(0,1).cpu())
     #tensorShow([haze_no,pred.clamp(0,1).cpu()],['haze','pred'])
     vutils.save_image(ts,output_dir+im.split('.')[0]+'_Lap.png')
-
+    # vutils.save_image(lapdawn,output_dir+im.split('.')[0]+'_Lapdown.png')
+    

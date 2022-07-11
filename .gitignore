@@ -1,10 +1,28 @@
 # ignore module and pic
 
 trained_moudles/*
-Test/
 data/Ori
 data/TestResult
+Test/baseline_result
+!Test/test.py
+Test/Decom
+Test/mask
+Test/pred_Lap:wocolorloss
+Test/test_imgs
+Test/lapdecom.py
+*.pyc*
+**/__pycache__
 
 
+Moudle/__pycache__/unet_model.cpython-37.pyc
+Test/DecomHIGH/
 
-
+Test/includetoplapfeature/
+Test/lapfeature/
+data/srm_addresult.csv
+Test/
+data/srm_result.csv
+.history/
+.lh/
+data/srm_result.csv
+data/v4TestResult/
