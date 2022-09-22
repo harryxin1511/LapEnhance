@@ -15,8 +15,7 @@ class PALayer(nn.Module):
             nn.ReLU(inplace=True),
             nn.Conv2d(channel // 8, 1, 1, padding=0, bias=True),
             nn.Sigmoid()
-        )
-
+        )    
     def forward(self, x):
         y = self.pa(x)
         return x * y

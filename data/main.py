@@ -19,16 +19,18 @@ from lib.utils import TVLoss, print_network
 from data.losses import ColorLoss,Blur
 save_test_path = './TestResult/'
 save_ori_path = './Ori/'
+
 # device_id =[1,2]
-if not os.path.exists('/home/xin/Experience/drive/srmfnet'):
-    os.mkdir('/home/xin/Experience/drive/srmfnet')
+if not os.path.exists('/home/xin/Experience/drive/lolsrmfnet'):
+    os.mkdir('/home/xin/Experience/drive/lolsrmfnet')
 from torch.nn.modules.loss import  _Loss
 from torchvision.models import vgg
 import pandas as pd
 import torch.nn.functional as F
+
 # df = pd.DataFrame(columns=['step','ssim','psnr'])
 # df.to_csv('./result.csv')
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+os.environ["CUDA_VISIBLE_DEVICES"] = "1"
 model = {
     'ConMixer':LapNet(num_high=3)
 }
@@ -40,7 +42,6 @@ from visdom import Visdom
 viz = Visdom(env='feature_maps')
 """
 损失函数设置为gt和sam的输出，不是与上采样的家和
-
 """
 def train(loader_train,loader_test,net,optimizer):
     max_ssim = 0
@@ -103,7 +104,7 @@ def train(loader_train,loader_test,net,optimizer):
         laploss0 = L1_criterion(lap0_gt, lap0)
         laploss1 = L1_criterion(lap1_gt, lap1)
         laploss2 = L1_criterion(lap2_gt, lap2)
-        total_laploss = laploss0 + laploss1 
+        total_laploss = laploss0 + laploss1 + laploss2
         #loss = criterion[0](out,y)
         """ l1 loss """
         scale0l1 = L1_closs(Scale0,y)  #512
@@ -141,7 +142,7 @@ def train(loader_train,loader_test,net,optimizer):
         print( f'\rtrain loss : {loss.item():.5f}| step :{epoch}/{opt.epoch}|lr :{lr :.7f} |time_used :{(end - start)  :}',end='', flush=True)
 
 
-        if (epoch+1) % 10000 == 0:
+        if (epoch+1) % 5000 == 0:
             print('\n ----------------------------------------test!-----------------------------------------------------------')
             with torch.no_grad():
                 ssim_eval, psnr_eval = test(net, loader_test,epoch)
@@ -152,8 +153,8 @@ def train(loader_train,loader_test,net,optimizer):
                     max_ssim = max(max_ssim, ssim_eval)
                     max_psnr = max(max_psnr, psnr_eval)
                 # torch.save(net.state_dict(),opt.model_dir+'/train_model.pth')
-                torch.save(net.state_dict(),f'/home/xin/Experience/drive/srmfnet/ll{epoch}.pth')
-                list = [epoch, ssim_eval, psnr_eval ]
+                torch.save(net.state_dict(),f'/home/xin/Experience/drive/lolsrmfnet/ll{epoch}.pth')
+                list = [epoch, ssim_eval, psnr_eval]
                 data = pd.DataFrame([list])
                 data.to_csv('./result6000.csv',mode='a')
                 # print(opt.model_dir+'/train_model.pth')
@@ -231,16 +232,14 @@ class PerceptualLoss(_Loss):
 
         return F.l1_loss(feat_a, feat_b)
 
-
 #TEST!
 if __name__ == "__main__":
 
-    torch.cuda.empty_cache()
+    # torch.cuda.empty_cache()
     loader_train = loaders[opt.trainset]    # its_train
     loader_test = loaders[opt.testset]      # its_test
     net = model[opt.net]
    
-    # net = torch.nn.DataParallel(net)
     net = net.to(opt.device)
 
     """

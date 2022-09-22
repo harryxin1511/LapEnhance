@@ -9,9 +9,11 @@ from Moudle.unet_model import UNet
 from Moudle.carefe import CARAFE
 # def default_conv(in_channels, out_channels, kernel_size, bias=True):
 #     return nn.Conv2d(in_channels, out_channels, kernel_size, padding=(kernel_size // 2), bias=bias)
+
 """
 w/out  upsample functional kernel
 """
+
 
 class CALayer(nn.Module):
     def __init__(self, channel, reduction=4, bias=False):
@@ -72,7 +74,7 @@ class Lap_Pyramid_Conv(nn.Module):
                                [1., 4., 6., 4., 1.]])
         kernel /= 256.
         kernel = kernel.repeat(channels, 1, 1, 1)
-        kernel = kernel.cuda(0)
+        kernel = kernel.cuda()
         return kernel
 
     def downsample(self, x):
@@ -88,8 +90,8 @@ class Lap_Pyramid_Conv(nn.Module):
         return self.conv_gauss(x_up, 4 * self.kernel)
 
     def conv_gauss(self, img, kernel):  # 高斯卷积
-        img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect').cuda(0)
-        out = torch.nn.functional.conv2d(img, kernel, groups=img.shape[1]).cuda()
+        img = torch.nn.functional.pad(img, (2, 2, 2, 2), mode='reflect')
+        out = torch.nn.functional.conv2d(img, kernel, groups=img.shape[1])
         return out
 
     def pyramid_decom(self, img):  # 拉普拉斯金字塔高频分量和低频分量的区分
@@ -105,6 +107,7 @@ class Lap_Pyramid_Conv(nn.Module):
             diff = current - up # 高频残差
             # print(diff.shape)
             # print(current.shape)
+            # print('*****')
             pyr.append(diff)
             pyr_ori.append(current)
             current = down
@@ -139,7 +142,7 @@ class SAM(nn.Module):
     def forward(self, x, x_img):        #x :feature x_img:original img
         ilumap = self.iluec(x)
         ilufeat = self.iludc(ilumap)
-        x1 = self.conv1(x)
+        x1 = x
         lap_map = self.conv2(x)
         img =  self.recomnet(torch.cat((lap_map,x_img),dim=1))
 
@@ -147,7 +150,7 @@ class SAM(nn.Module):
         x1 = x1*x2
         x1 = x1+ilufeat
         return x1, img,ilumap,lap_map
-    
+
 ### RecomMoudle
 class RecomMoudle(nn.Module):
     def __init__(self,n_feat, kernel_size,bias=False):
@@ -211,15 +214,21 @@ class Trans_high(nn.Module):
         # print(self.result_highfreq_0.shape)
         # feature2 = nn.functional.interpolate(feature2,size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
         feature2 = self.carefe1(feature2)
+        if feature2.shape[2] != pyr_lap[-3].shape[2] or feature2.shape[3] != pyr_lap[-3].shape[3]:
+            feature2 = nn.functional.interpolate(feature2, size=(pyr_lap[-3].shape[2], pyr_lap[-3].shape[3]))
         feature3 = torch.cat((feature2,self.fextact1(pyr_lap[-3])),dim=1)
         feature3 = self.trans_mask_block2(feature3)
         temp0 = feature3
+        if feature3.shape[2] != pyr_high[-3].shape[2] or feature3.shape[3] != pyr_high[-3].shape[3]:
+            feature3 = nn.functional.interpolate(feature3, size=(pyr_high[-3].shape[2], pyr_high[-3].shape[3]))
         feature3,result_highfreq3,ilumap3,lap3 = self.sam2(feature3,pyr_high[-3])
         temp = feature3
         setattr(self, 'result_highfreq_{}'.format(str(1)), result_highfreq3) #torch.Size([1, 3, 128, 128])
         # feature3 = nn.functional.interpolate(feature3, size=(pyr_lap[-4].shape[2], pyr_lap[-4].shape[3]))
-        feature3 = self.carefe2(feature3)
-        feature4 = (torch.cat((feature3,self.fextact2(pyr_lap[-4])),dim=1))
+        feature4 = self.carefe2(feature3)
+        if feature4.shape[2] != pyr_high[-4].shape[2] or feature4.shape[3] != pyr_high[-4].shape[3]:
+            feature4 = nn.functional.interpolate(feature4, size=(pyr_high[-4].shape[2], pyr_high[-4].shape[3]))
+        feature4 = (torch.cat((feature4,self.fextact2(pyr_lap[-4])),dim=1))
         # result_highfreq4 = self.conv(self.orb(feature4))
         # feature4 = self.trans_mask_block3(feature4)
         # result_highfreq4 = feature4 + pyr_high[-4]
@@ -263,11 +272,14 @@ class LapNet(nn.Module):
         # print((pyr_O[0].shape))
         # print((pyr_A[0].shape)) #pyr_A[0] 1,3,512,512
         fake_B_low = self.unet(pyr_A[-1])   #last nomal map
-        # fake_B_low = self.relu((fake_B_low*pyr_A[-1])-fake_B_low+1)
-        # real_A_up = nn.functional.interpolate(pyr_A[-1], size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
+
         real_A_up = self.carefe0(pyr_A[-1])
+        if real_A_up.shape[2] != pyr_A[-2].shape[2] or real_A_up.shape[3] != pyr_A[-2].shape[3]:
+            real_A_up = nn.functional.interpolate(real_A_up, size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
         # fake_B_up = nn.functional.interpolate(fake_B_low, size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
         fake_B_up = self.carefe0(fake_B_low)
+        if fake_B_up.shape[2] != pyr_A[-2].shape[2] or fake_B_up.shape[3] != pyr_A[-2].shape[3]:
+            fake_B_up = nn.functional.interpolate(fake_B_up, size=(pyr_A[-2].shape[2], pyr_A[-2].shape[3]))
         high_with_low = torch.cat([pyr_A[-2], real_A_up, fake_B_up], 1)
         #print(high_with_low.shape)
         pyr_A_trans,pyr_lap1,ilumap,temp,temp0= self.trans_high(high_with_low, pyr_A, fake_B_low,pyr_O)  # list concat分量 lp分量list 低频处理分量
@@ -286,7 +298,7 @@ if __name__ == "__main__":
     device = 'cuda'
     X = torch.Tensor(1,3,512,512).cuda()
     net = LapNet(num_high=3).cuda()
-    net = nn.DataParallel(net)
+    # net = nn.DataParallel(net)
     y = net(X)
     lap_list = y[-1]
     for img in lap_list:
